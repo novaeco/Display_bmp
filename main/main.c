@@ -18,6 +18,7 @@
 #include "sd.h"              // En-tête des opérations sur carte SD
 
 #include <dirent.h>          // En-tête pour les opérations sur répertoires
+#include <stdio.h>
 
 static char *BmpPath[256];        // Tableau pour stocker les chemins des fichiers BMP
 static uint8_t bmp_num;           // Nombre de fichiers BMP trouvés
@@ -34,6 +35,10 @@ void list_files(const char *base_path) {
             // Vérifie si le fichier se termine par ".bmp"
             size_t len = strlen(file_name);
             if (len > 4 && strcasecmp(&file_name[len - 4], ".bmp") == 0) {
+                if (i >= 256) {
+                    printf("Erreur : quota maximal de chemins BMP atteint (256)\n");
+                    break;
+                }
                 size_t length = strlen(base_path) + strlen(file_name) + 2; // 1 pour '/' et 1 pour '\0'
                 BmpPath[i] = malloc(length);  // Alloue la mémoire pour le chemin du BMP
                 snprintf(BmpPath[i], length, "%s/%s", base_path, file_name); // Enregistre le chemin complet
@@ -43,6 +48,15 @@ void list_files(const char *base_path) {
         bmp_num = i; // Met à jour le nombre de fichiers BMP trouvés
         closedir(dir); // Ferme le répertoire
     }
+}
+
+void free_bmp_paths(void)
+{
+    for (int i = 0; i < bmp_num && i < 256; i++) {
+        free(BmpPath[i]);
+        BmpPath[i] = NULL;
+    }
+    bmp_num = 0;
 }
 
 // Fonction principale de l'application
@@ -154,6 +168,7 @@ void app_main()
         {
             Paint_DrawString_EN(200, 320, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);
             wavesahre_rgb_lcd_display(BlackImage);
+            free_bmp_paths();
             return;
         }
         else
@@ -174,8 +189,9 @@ void app_main()
         // Si l'initialisation de la carte SD échoue
         Paint_DrawString_EN(200, 200, "Échec carte SD !", &Font24, BLACK, WHITE);
         wavesahre_rgb_lcd_display(BlackImage);
+        free_bmp_paths();
         return;
-        
+
     }
 
     // Variables initiales du point tactile
