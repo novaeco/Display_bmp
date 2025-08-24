@@ -17,6 +17,7 @@
 #include <stdio.h>          // Standard input/output library
 #include <string.h>         // String manipulation functions
 #include "driver/i2c_master.h"    // ESP32 I2C master driver library
+#include "esp_err.h"        // ESP-IDF error codes
 #include "esp_log.h"        // ESP32 logging library for debugging
 #include "gpio.h"           // GPIO header for pin configuration
 
@@ -67,7 +68,7 @@ void DEV_I2C_Set_Slave_Addr(i2c_master_dev_handle_t *dev_handle, uint8_t Addr);
  * @param Cmd The command byte to send to the device.
  * @param value The value byte to send to the device.
  */
-void DEV_I2C_Write_Byte(i2c_master_dev_handle_t dev_handle, uint8_t Cmd, uint8_t value);
+esp_err_t DEV_I2C_Write_Byte(i2c_master_dev_handle_t dev_handle, uint8_t Cmd, uint8_t value);
 
 /**
  * @brief Read a single byte from the I2C device.
@@ -77,7 +78,7 @@ void DEV_I2C_Write_Byte(i2c_master_dev_handle_t dev_handle, uint8_t Cmd, uint8_t
  * @param dev_handle The handle to the I2C device.
  * @return The byte read from the I2C device.
  */
-uint8_t DEV_I2C_Read_Byte(i2c_master_dev_handle_t dev_handle);
+esp_err_t DEV_I2C_Read_Byte(i2c_master_dev_handle_t dev_handle, uint8_t *value);
 
 /**
  * @brief Read a word (2 bytes) from the I2C device.
@@ -89,7 +90,7 @@ uint8_t DEV_I2C_Read_Byte(i2c_master_dev_handle_t dev_handle);
  * @param Cmd The command byte to send.
  * @return The 16-bit word read from the device.
  */
-uint16_t DEV_I2C_Read_Word(i2c_master_dev_handle_t dev_handle, uint8_t Cmd);
+esp_err_t DEV_I2C_Read_Word(i2c_master_dev_handle_t dev_handle, uint8_t Cmd, uint16_t *value);
 
 /**
  * @brief Write multiple bytes to the I2C device.
@@ -100,7 +101,7 @@ uint16_t DEV_I2C_Read_Word(i2c_master_dev_handle_t dev_handle, uint8_t Cmd);
  * @param pdata A pointer to the data to write.
  * @param len The number of bytes to write.
  */
-void DEV_I2C_Write_Nbyte(i2c_master_dev_handle_t dev_handle, uint8_t *pdata, uint8_t len);
+esp_err_t DEV_I2C_Write_Nbyte(i2c_master_dev_handle_t dev_handle, const uint8_t *pdata, uint8_t len);
 
 /**
  * @brief Read multiple bytes from the I2C device.
@@ -112,6 +113,6 @@ void DEV_I2C_Write_Nbyte(i2c_master_dev_handle_t dev_handle, uint8_t *pdata, uin
  * @param pdata A pointer to the buffer to store the received data.
  * @param len The number of bytes to read.
  */
-void DEV_I2C_Read_Nbyte(i2c_master_dev_handle_t dev_handle, uint8_t Cmd, uint8_t *pdata, uint8_t len);
+esp_err_t DEV_I2C_Read_Nbyte(i2c_master_dev_handle_t dev_handle, uint8_t Cmd, uint8_t *pdata, uint8_t len);
 
 #endif

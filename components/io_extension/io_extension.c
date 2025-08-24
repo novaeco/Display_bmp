@@ -22,11 +22,11 @@ io_extension_obj_t IO_EXTENSION;  // Define the global IO_EXTENSION object
  * 
  * @param pin An 8-bit value where each bit represents a pin (0 = input, 1 = output).
  */
-void IO_EXTENSION_IO_Mode(uint8_t pin) 
+void IO_EXTENSION_IO_Mode(uint8_t pin)
 {
     uint8_t data[2] = {IO_EXTENSION_Mode, pin}; // Prepare the data to write to the mode register
     // Write the 8-bit value to the IO mode register
-    DEV_I2C_Write_Nbyte(IO_EXTENSION.addr, data, 2);
+    ESP_ERROR_CHECK(DEV_I2C_Write_Nbyte(IO_EXTENSION.addr, data, 2));
 }
 
 /**
@@ -66,7 +66,7 @@ void IO_EXTENSION_Output(uint8_t pin, uint8_t value)
 
     uint8_t data[2] = {IO_EXTENSION_IO_OUTPUT_ADDR, IO_EXTENSION.Last_io_value}; // Prepare the data to write to the output register
     // Write the 8-bit value to the IO output register
-    DEV_I2C_Write_Nbyte(IO_EXTENSION.addr, data, 2);
+    ESP_ERROR_CHECK(DEV_I2C_Write_Nbyte(IO_EXTENSION.addr, data, 2));
 }
 
 /**
@@ -83,7 +83,7 @@ uint8_t IO_EXTENSION_Input(uint8_t pin)
     uint8_t value = 0;
 
     // Read the value of the input pins
-    DEV_I2C_Read_Nbyte(IO_EXTENSION.addr, IO_EXTENSION_IO_INPUT_ADDR, &value, 1);
+    ESP_ERROR_CHECK(DEV_I2C_Read_Nbyte(IO_EXTENSION.addr, IO_EXTENSION_IO_INPUT_ADDR, &value, 1));
     // Return the value of the specific pin(s) by masking with the provided bit mask
     return ((value & (1 << pin)) > 0);
 }
@@ -108,7 +108,7 @@ void IO_EXTENSION_Pwm_Output(uint8_t Value)
     // Calculate the duty cycle based on the resolution (12 bits)
     data[1] = Value * 255 / 100;
     // Write the 8-bit value to the PWM output register
-    DEV_I2C_Write_Nbyte(IO_EXTENSION.addr, data, 2);
+    ESP_ERROR_CHECK(DEV_I2C_Write_Nbyte(IO_EXTENSION.addr, data, 2));
 }
 
 /**
@@ -121,5 +121,7 @@ void IO_EXTENSION_Pwm_Output(uint8_t Value)
 uint16_t IO_EXTENSION_Adc_Input()
 {
     // Read the ADC input value from the IO_EXTENSION device
-    return DEV_I2C_Read_Word(IO_EXTENSION.addr, IO_EXTENSION_ADC_ADDR);
+    uint16_t value = 0;
+    ESP_ERROR_CHECK(DEV_I2C_Read_Word(IO_EXTENSION.addr, IO_EXTENSION_ADC_ADDR, &value));
+    return value;
 }
