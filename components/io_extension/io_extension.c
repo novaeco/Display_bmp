@@ -94,7 +94,7 @@ uint8_t IO_EXTENSION_Input(uint8_t pin)
  * This function sets the PWM output value, which controls the duty cycle of the PWM signal.
  * The duty cycle is calculated based on the input value and the resolution (12 bits).
  * 
- * @param Value The input value to set the PWM duty cycle (0-100).
+ * @param Value PWM duty cycle percentage in the range [0, 100].
  */
 void IO_EXTENSION_Pwm_Output(uint8_t Value)
 {
@@ -104,9 +104,9 @@ void IO_EXTENSION_Pwm_Output(uint8_t Value)
         Value = 97;
     }
 
-    uint8_t data[2] = {IO_EXTENSION_PWM_ADDR, Value}; // Prepare the data to write to the PWM register
+    uint8_t data[2] = {IO_EXTENSION_PWM_ADDR}; // Prepare the data to write to the PWM register
     // Calculate the duty cycle based on the resolution (12 bits)
-    data[1] = Value * (255 / 100.0);
+    data[1] = Value * 255 / 100;
     // Write the 8-bit value to the PWM output register
     DEV_I2C_Write_Nbyte(IO_EXTENSION.addr, data, 2);
 }
