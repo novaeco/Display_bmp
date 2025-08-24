@@ -307,7 +307,7 @@ static void draw_navigation_arrows(void)
 static bool handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
 {
     touch_gt911_point_t point_data;
-    if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) != pdTRUE) {
+    if (xQueueReceive(s_touch_queue, &point_data, pdMS_TO_TICKS(50)) != pdTRUE) {
         return false;
     }
     if (point_data.cnt == 2) {
@@ -346,6 +346,11 @@ static bool handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pre
         *prev_y = ty;
     }
     return false;
+}
+
+static void process_background_tasks(void)
+{
+    // Espace réservé pour d'autres traitements périodiques : watchdog, animations, etc.
 }
 // Fonction principale de l'application
 void app_main(void)
@@ -415,6 +420,7 @@ void app_main(void)
         case APP_STATE_EXIT:
             break;
         }
+        process_background_tasks();
     }
     app_cleanup();
     vTaskDelete(NULL);
