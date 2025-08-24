@@ -38,7 +38,8 @@ static esp_lcd_touch_handle_t s_touch_handle; // Handle du contrôleur tactile
 typedef enum {
     APP_STATE_FOLDER_SELECTION = 0,
     APP_STATE_NAVIGATION,
-    APP_STATE_ERROR
+    APP_STATE_ERROR,
+    APP_STATE_EXIT
 } app_state_t;
 
 // Fonction listant tous les fichiers BMP d'un répertoire
@@ -83,12 +84,26 @@ void free_bmp_paths(void)
 
 static void app_cleanup(void)
 {
+    if (s_touch_task_handle) {
+        vTaskDelete(s_touch_task_handle);
+        s_touch_task_handle = NULL;
+    }
+    if (s_touch_queue) {
+        vQueueDelete(s_touch_queue);
+        s_touch_queue = NULL;
+    }
+    if (s_touch_handle) {
+        esp_lcd_touch_register_interrupt_callback(s_touch_handle, NULL);
+        esp_lcd_touch_del(s_touch_handle);
+        s_touch_handle = NULL;
+    }
     esp_err_t unmount_ret = sd_mmc_unmount();
     if (unmount_ret != ESP_OK) {
         ESP_LOGW(TAG, "sd_mmc_unmount a échoué : %s", esp_err_to_name(unmount_ret));
     }
     free_bmp_paths();
     free(BlackImage);
+    BlackImage = NULL;
 }
 
 static void IRAM_ATTR touch_int_cb(esp_lcd_touch_handle_t tp)
@@ -188,13 +203,18 @@ static const char *draw_folder_selection(void)
 
     const char *selected_dir = NULL;
     while (selected_dir == NULL) {
-        if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) == pdTRUE && point_data.cnt == 1) {
-            uint16_t tx = point_data.x[0];
-            uint16_t ty = point_data.y[0];
-            if (tx >= btnL_x0 && tx <= btnL_x1 && ty >= btnL_y0 && ty <= btnL_y1) {
-                selected_dir = "Reptiles";
-            } else if (tx >= btnR_x0 && tx <= btnR_x1 && ty >= btnR_y0 && ty <= btnR_y1) {
-                selected_dir = "Presentation";
+        if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) == pdTRUE) {
+            if (point_data.cnt == 2) {
+                return NULL;
+            }
+            if (point_data.cnt == 1) {
+                uint16_t tx = point_data.x[0];
+                uint16_t ty = point_data.y[0];
+                if (tx >= btnL_x0 && tx <= btnL_x1 && ty >= btnL_y0 && ty <= btnL_y1) {
+                    selected_dir = "Reptiles";
+                } else if (tx >= btnR_x0 && tx <= btnR_x1 && ty >= btnR_y0 && ty <= btnR_y1) {
+                    selected_dir = "Presentation";
+                }
             }
         }
     }
@@ -219,14 +239,20 @@ static void draw_navigation_arrows(void)
     Paint_DrawLine(EXAMPLE_LCD_H_RES-20, 20, EXAMPLE_LCD_H_RES-45, 35, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
 }
 
-static void handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
+static bool handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
 {
     touch_gt911_point_t point_data;
-    if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) != pdTRUE || point_data.cnt != 1) {
-        return;
+    if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) != pdTRUE) {
+        return false;
+    }
+    if (point_data.cnt == 2) {
+        return true;
+    }
+    if (point_data.cnt != 1) {
+        return false;
     }
     if ((*prev_x == point_data.x[0]) && (*prev_y == point_data.y[0])) {
-        return;
+        return false;
     }
     if (point_data.x[0] >= 20 && point_data.x[0] <= 80 && point_data.y[0] >= 0 && point_data.y[0] <= 60) {
         (*idx)--;
@@ -251,6 +277,7 @@ static void handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pre
         *prev_x = point_data.x[0];
         *prev_y = point_data.y[0];
     }
+    return false;
 }
 // Fonction principale de l'application
 void app_main(void)
@@ -276,10 +303,14 @@ void app_main(void)
     uint16_t prev_x = 0;
     uint16_t prev_y = 0;
 
-    while (1) {
+    while (state != APP_STATE_EXIT) {
         switch (state) {
         case APP_STATE_FOLDER_SELECTION:
             selected_dir = draw_folder_selection();
+            if (selected_dir == NULL) {
+                state = APP_STATE_EXIT;
+                break;
+            }
             snprintf(base_path, sizeof(base_path), "%s/%s", MOUNT_POINT, selected_dir);
             free_bmp_paths();
             list_files(base_path);
@@ -296,13 +327,19 @@ void app_main(void)
             break;
 
         case APP_STATE_NAVIGATION:
-            handle_touch_navigation(&index, &prev_x, &prev_y);
+            if (handle_touch_navigation(&index, &prev_x, &prev_y)) {
+                state = APP_STATE_EXIT;
+            }
             break;
 
         case APP_STATE_ERROR:
             vTaskDelay(portMAX_DELAY);
             break;
+
+        case APP_STATE_EXIT:
+            break;
         }
     }
     app_cleanup();
+    vTaskDelete(NULL);
 }
