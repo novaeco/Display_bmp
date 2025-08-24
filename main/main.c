@@ -20,6 +20,7 @@
 #include <dirent.h>          // En-tête pour les opérations sur répertoires
 #include <stdio.h>
 #include "esp_log.h"
+#include "esp_err.h"
 #include <stdbool.h>
 
 static char *BmpPath[256];        // Tableau pour stocker les chemins des fichiers BMP
@@ -71,8 +72,18 @@ void free_bmp_paths(void)
 
 static bool init_peripherals(void)
 {
-    touch_gt911_init();
-    waveshare_esp32_s3_rgb_lcd_init();
+    esp_lcd_touch_handle_t touch = touch_gt911_init();
+    if (touch == NULL) {
+        ESP_LOGE(TAG, "Échec d'initialisation du contrôleur tactile");
+        return false;
+    }
+
+    esp_lcd_panel_handle_t panel = waveshare_esp32_s3_rgb_lcd_init();
+    if (panel == NULL) {
+        ESP_LOGE(TAG, "Échec d'initialisation du LCD");
+        return false;
+    }
+
     wavesahre_rgb_lcd_bl_on();
 
     UDOUBLE Imagesize = EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES * 2;
@@ -198,7 +209,9 @@ void app_main(void)
         return;
     }
 
-    if (sd_mmc_init() != ESP_OK) {
+    esp_err_t sd_ret = sd_mmc_init();
+    if (sd_ret != ESP_OK) {
+        ESP_LOGE(TAG, "sd_mmc_init a échoué : %s", esp_err_to_name(sd_ret));
         Paint_DrawString_EN(200, 200, "Échec carte SD !", &Font24, BLACK, WHITE);
         wavesahre_rgb_lcd_display(BlackImage);
         free_bmp_paths();
