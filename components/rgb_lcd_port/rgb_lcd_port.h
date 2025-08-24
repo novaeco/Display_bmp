@@ -24,6 +24,7 @@
 #include "freertos/task.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_rgb.h"
+#include "config.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// Please update the following configuration according to your LCD spec //////////////////////////////
@@ -32,8 +33,8 @@
 /**
  * @brief LCD Resolution and Timing
  */
-#define EXAMPLE_LCD_H_RES               (1024)  ///< Horizontal resolution in pixels
-#define EXAMPLE_LCD_V_RES               (600)  ///< Vertical resolution in pixels
+#define EXAMPLE_LCD_H_RES               (LCD_H_RES)  ///< Horizontal resolution in pixels
+#define EXAMPLE_LCD_V_RES               (LCD_V_RES)  ///< Vertical resolution in pixels
 #define EXAMPLE_LCD_PIXEL_CLOCK_HZ      (30 * 1000 * 1000) ///< Pixel clock frequency in Hz
 
 /**

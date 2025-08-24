@@ -1,3 +1,32 @@
+menu "Display options"
+    config DISPLAY_WIDTH
+        int "Display width in pixels"
+        default 1024
+    config DISPLAY_HEIGHT
+        int "Display height in pixels"
+        default 600
+    config DISPLAY_MARGIN_LEFT
+        int "Left margin in pixels"
+        default 120
+    config DISPLAY_MARGIN_RIGHT
+        int "Right margin in pixels"
+        default 120
+    config DISPLAY_MARGIN_TOP
+        int "Top margin in pixels"
+        default 0
+    config DISPLAY_MARGIN_BOTTOM
+        int "Bottom margin in pixels"
+        default 0
+    choice DISPLAY_ORIENTATION
+        prompt "Display orientation"
+        default DISPLAY_ORIENTATION_LANDSCAPE
+        config DISPLAY_ORIENTATION_LANDSCAPE
+            bool "Landscape"
+        config DISPLAY_ORIENTATION_PORTRAIT
+            bool "Portrait"
+    endchoice
+endmenu
+
 menu "SD card options"
 choice SDMMC_BUS_WIDTH
     prompt "SDMMC bus width"
