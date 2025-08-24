@@ -16,6 +16,7 @@
 #include "gui_bmp.h"         // En-tête pour la gestion des images BMP
 #include "gt911.h"           // En-tête des opérations de l'écran tactile (GT911)
 #include "sd.h"              // En-tête des opérations sur carte SD
+#include "config.h"
 
 #include <dirent.h>          // En-tête pour les opérations sur répertoires
 #include <stdio.h>
@@ -28,13 +29,41 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 
-static char *BmpPath[256];        // Tableau pour stocker les chemins des fichiers BMP
+#define MAX_BMP_FILES            256
+#define TOUCH_QUEUE_LENGTH       10
+#define TOUCH_TASK_STACK         4096
+#define TOUCH_TASK_PRIORITY      5
+#define TEXT_X_DIVISOR           5
+#define TEXT_Y1_DIVISOR          3
+#define TEXT_LINE_SPACING        40
+#define BTN_WIDTH                320
+#define BTN_HEIGHT               120
+#define NAV_MARGIN               20
+#define NAV_LINE_LEN             60
+#define NAV_TOUCH_HEIGHT         60
+#define NAV_HEAD_OFFSET          25
+#define NAV_HEAD_Y_OFFSET        15
+#define BTN_LABEL_L_OFFSET_X     60
+#define BTN_LABEL_R_OFFSET_X     40
+#define BTN_LABEL_OFFSET_Y       12
+#define BASE_PATH_LEN            128
+#define PAINT_SCALE              65
+
+static char *BmpPath[MAX_BMP_FILES];        // Tableau pour stocker les chemins des fichiers BMP
 static uint8_t bmp_num;           // Nombre de fichiers BMP trouvés
 static const char *TAG = "APP";
 static UBYTE *BlackImage;         // Framebuffer global
 static TaskHandle_t s_touch_task_handle;  // Tâche de traitement tactile
 static QueueHandle_t s_touch_queue;       // File de messages pour événements tactiles
 static esp_lcd_touch_handle_t s_touch_handle; // Handle du contrôleur tactile
+static const display_geometry_t g_display = {
+    .width = LCD_H_RES,
+    .height = LCD_V_RES,
+    .margin_left = LCD_MARGIN_LEFT,
+    .margin_right = LCD_MARGIN_RIGHT,
+    .margin_top = LCD_MARGIN_TOP,
+    .margin_bottom = LCD_MARGIN_BOTTOM,
+};
 
 typedef enum {
     APP_STATE_FOLDER_SELECTION = 0,
@@ -69,8 +98,8 @@ esp_err_t list_files_sorted(const char *base_path)
         const char *file_name = entry->d_name;
         size_t len = strlen(file_name);
         if (len > 4 && strcasecmp(&file_name[len - 4], ".bmp") == 0) {
-            if (i >= 256) {
-                ESP_LOGE(TAG, "Quota maximal de chemins BMP atteint (256)");
+            if (i >= MAX_BMP_FILES) {
+                ESP_LOGE(TAG, "Quota maximal de chemins BMP atteint (%d)", MAX_BMP_FILES);
                 closedir(dir);
                 bmp_num = i;
                 qsort(BmpPath, bmp_num, sizeof(char *), bmp_path_cmp);
@@ -97,7 +126,7 @@ esp_err_t list_files_sorted(const char *base_path)
 
 static void free_bmp_paths(void)
 {
-    for (int i = 0; i < bmp_num && i < 256; i++) {
+    for (int i = 0; i < bmp_num && i < MAX_BMP_FILES; i++) {
         free(BmpPath[i]);
         BmpPath[i] = NULL;
     }
@@ -145,6 +174,15 @@ static void touch_task(void *arg)
     }
 }
 
+static inline void orient_coords(uint16_t *x, uint16_t *y)
+{
+#if CONFIG_DISPLAY_ORIENTATION_PORTRAIT
+    uint16_t tx = *x;
+    *x = *y;
+    *y = g_display.width - tx;
+#endif
+}
+
 static bool init_peripherals(void)
 {
     s_touch_handle = touch_gt911_init();
@@ -161,23 +199,23 @@ static bool init_peripherals(void)
 
     wavesahre_rgb_lcd_bl_on();
 
-    UDOUBLE Imagesize = EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES * 2;
+    UDOUBLE Imagesize = g_display.width * g_display.height * 2;
     BlackImage = (UBYTE *)malloc(Imagesize);
     if (BlackImage == NULL) {
         ESP_LOGE(TAG, "Échec d’allocation mémoire pour le framebuffer...");
         return false;
     }
 
-    Paint_NewImage(BlackImage, EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES, 0, WHITE);
-    Paint_SetScale(65);
+    Paint_NewImage(BlackImage, g_display.width, g_display.height, 0, WHITE);
+    Paint_SetScale(PAINT_SCALE);
     Paint_Clear(WHITE);
 
-    s_touch_queue = xQueueCreate(10, sizeof(touch_gt911_point_t));
+    s_touch_queue = xQueueCreate(TOUCH_QUEUE_LENGTH, sizeof(touch_gt911_point_t));
     if (s_touch_queue == NULL) {
         ESP_LOGE(TAG, "Échec de création de la file tactile");
         return false;
     }
-    if (xTaskCreate(touch_task, "touch_task", 4096, NULL, 5, &s_touch_task_handle) != pdPASS) {
+    if (xTaskCreate(touch_task, "touch_task", TOUCH_TASK_STACK, NULL, TOUCH_TASK_PRIORITY, &s_touch_task_handle) != pdPASS) {
         ESP_LOGE(TAG, "Échec de création de la tâche tactile");
         return false;
     }
@@ -194,32 +232,36 @@ static const char *draw_folder_selection(void)
 {
     touch_gt911_point_t point_data;
 
-    Paint_DrawString_EN(200, 200, "Carte SD OK !", &Font24, BLACK, WHITE);
-    Paint_DrawString_EN(200, 240, "Choisissez un dossier :", &Font24, BLACK, WHITE);
+    UWORD text_x = g_display.width / TEXT_X_DIVISOR;
+    UWORD text_y1 = g_display.height / TEXT_Y1_DIVISOR;
+    UWORD text_y2 = text_y1 + TEXT_LINE_SPACING;
 
-    UWORD btnL_x0 = 120;
-    UWORD btnL_y0 = 280;
-    UWORD btnL_x1 = 440;
-    UWORD btnL_y1 = 400;
+    Paint_DrawString_EN(text_x, text_y1, "Carte SD OK !", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(text_x, text_y2, "Choisissez un dossier :", &Font24, BLACK, WHITE);
 
-    UWORD btnR_x1 = EXAMPLE_LCD_H_RES - 120;
-    UWORD btnR_x0 = btnR_x1 - 320;
-    UWORD btnR_y0 = 280;
-    UWORD btnR_y1 = 400;
+    UWORD btnL_x0 = g_display.margin_left;
+    UWORD btnL_y0 = (g_display.height - BTN_HEIGHT) / 2;
+    UWORD btnL_x1 = btnL_x0 + BTN_WIDTH;
+    UWORD btnL_y1 = btnL_y0 + BTN_HEIGHT;
+
+    UWORD btnR_x1 = g_display.width - g_display.margin_right;
+    UWORD btnR_x0 = btnR_x1 - BTN_WIDTH;
+    UWORD btnR_y0 = btnL_y0;
+    UWORD btnR_y1 = btnL_y1;
 
     // Rectangle gauche Reptiles
     Paint_DrawLine(btnL_x0, btnL_y0, btnL_x1, btnL_y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
     Paint_DrawLine(btnL_x1, btnL_y0, btnL_x1, btnL_y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
     Paint_DrawLine(btnL_x1, btnL_y1, btnL_x0, btnL_y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
     Paint_DrawLine(btnL_x0, btnL_y1, btnL_x0, btnL_y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawString_EN(btnL_x0 + 60, (btnL_y0 + btnL_y1)/2 - 12, "Reptiles", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(btnL_x0 + BTN_LABEL_L_OFFSET_X, (btnL_y0 + btnL_y1)/2 - BTN_LABEL_OFFSET_Y, "Reptiles", &Font24, BLACK, WHITE);
 
     // Rectangle droit Presentation
     Paint_DrawLine(btnR_x0, btnR_y0, btnR_x1, btnR_y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
     Paint_DrawLine(btnR_x1, btnR_y0, btnR_x1, btnR_y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
     Paint_DrawLine(btnR_x1, btnR_y1, btnR_x0, btnR_y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
     Paint_DrawLine(btnR_x0, btnR_y1, btnR_x0, btnR_y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawString_EN(btnR_x0 + 40, (btnR_y0 + btnR_y1)/2 - 12, "Presentation", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(btnR_x0 + BTN_LABEL_R_OFFSET_X, (btnR_y0 + btnR_y1)/2 - BTN_LABEL_OFFSET_Y, "Presentation", &Font24, BLACK, WHITE);
 
     wavesahre_rgb_lcd_display(BlackImage);
 
@@ -232,6 +274,7 @@ static const char *draw_folder_selection(void)
             if (point_data.cnt == 1) {
                 uint16_t tx = point_data.x[0];
                 uint16_t ty = point_data.y[0];
+                orient_coords(&tx, &ty);
                 if (tx >= btnL_x0 && tx <= btnL_x1 && ty >= btnL_y0 && ty <= btnL_y1) {
                     selected_dir = "Reptiles";
                 } else if (tx >= btnR_x0 && tx <= btnR_x1 && ty >= btnR_y0 && ty <= btnR_y1) {
@@ -242,9 +285,9 @@ static const char *draw_folder_selection(void)
     }
 
     Paint_Clear(WHITE);
-    Paint_DrawString_EN(200, 200, "Dossier choisi :", &Font24, BLACK, WHITE);
-    Paint_DrawString_EN(200, 240, (char *)selected_dir, &Font24, BLACK, WHITE);
-    Paint_DrawString_EN(200, 280, "Touchez la fleche pour demarrer.", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(text_x, text_y1, "Dossier choisi :", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(text_x, text_y2, (char *)selected_dir, &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(text_x, text_y2 + TEXT_LINE_SPACING, "Touchez la fleche pour demarrer.", &Font24, BLACK, WHITE);
     wavesahre_rgb_lcd_display(BlackImage);
     return selected_dir;
 }
@@ -252,13 +295,13 @@ static const char *draw_folder_selection(void)
 static void draw_navigation_arrows(void)
 {
     // Flèche gauche
-    Paint_DrawLine(20, 20, 80, 20, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(20, 20, 45, 5,  RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(20, 20, 45, 35, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_LINE_LEN, NAV_MARGIN, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_HEAD_OFFSET, NAV_MARGIN - NAV_HEAD_Y_OFFSET,  RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_HEAD_OFFSET, NAV_MARGIN + NAV_HEAD_Y_OFFSET, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
     // Flèche droite
-    Paint_DrawLine(EXAMPLE_LCD_H_RES-80, 20, EXAMPLE_LCD_H_RES-20, 20, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(EXAMPLE_LCD_H_RES-20, 20, EXAMPLE_LCD_H_RES-45, 5,  RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(EXAMPLE_LCD_H_RES-20, 20, EXAMPLE_LCD_H_RES-45, 35, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(g_display.width - NAV_MARGIN - NAV_LINE_LEN, NAV_MARGIN, g_display.width - NAV_MARGIN, NAV_MARGIN, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(g_display.width - NAV_MARGIN, NAV_MARGIN, g_display.width - NAV_MARGIN - NAV_HEAD_OFFSET, NAV_MARGIN - NAV_HEAD_Y_OFFSET,  RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(g_display.width - NAV_MARGIN, NAV_MARGIN, g_display.width - NAV_MARGIN - NAV_HEAD_OFFSET, NAV_MARGIN + NAV_HEAD_Y_OFFSET, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
 }
 
 static bool handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
@@ -273,10 +316,13 @@ static bool handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pre
     if (point_data.cnt != 1) {
         return false;
     }
-    if ((*prev_x == point_data.x[0]) && (*prev_y == point_data.y[0])) {
+    uint16_t tx = point_data.x[0];
+    uint16_t ty = point_data.y[0];
+    orient_coords(&tx, &ty);
+    if ((*prev_x == tx) && (*prev_y == ty)) {
         return false;
     }
-    if (point_data.x[0] >= 20 && point_data.x[0] <= 80 && point_data.y[0] >= 0 && point_data.y[0] <= 60) {
+    if (tx >= NAV_MARGIN && tx <= NAV_MARGIN + NAV_LINE_LEN && ty >= 0 && ty <= NAV_TOUCH_HEIGHT) {
         (*idx)--;
         if (*idx < 0) {
             *idx = bmp_num - 1;
@@ -285,9 +331,9 @@ static bool handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pre
         GUI_ReadBmp(0, 0, BmpPath[*idx]);
         draw_navigation_arrows();
         wavesahre_rgb_lcd_display(BlackImage);
-        *prev_x = point_data.x[0];
-        *prev_y = point_data.y[0];
-    } else if (point_data.x[0] >= EXAMPLE_LCD_H_RES-80 && point_data.x[0] <= EXAMPLE_LCD_H_RES-20 && point_data.y[0] >= 0 && point_data.y[0] <= 60) {
+        *prev_x = tx;
+        *prev_y = ty;
+    } else if (tx >= g_display.width - NAV_MARGIN - NAV_LINE_LEN && tx <= g_display.width - NAV_MARGIN && ty >= 0 && ty <= NAV_TOUCH_HEIGHT) {
         (*idx)++;
         if (*idx > bmp_num - 1) {
             *idx = 0;
@@ -296,8 +342,8 @@ static bool handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pre
         GUI_ReadBmp(0, 0, BmpPath[*idx]);
         draw_navigation_arrows();
         wavesahre_rgb_lcd_display(BlackImage);
-        *prev_x = point_data.x[0];
-        *prev_y = point_data.y[0];
+        *prev_x = tx;
+        *prev_y = ty;
     }
     return false;
 }
@@ -312,7 +358,9 @@ void app_main(void)
     esp_err_t sd_ret = sd_mmc_init();
     if (sd_ret != ESP_OK) {
         ESP_LOGE(TAG, "sd_mmc_init a échoué : %s", esp_err_to_name(sd_ret));
-        Paint_DrawString_EN(200, 200, "Échec carte SD !", &Font24, BLACK, WHITE);
+        UWORD err_x = g_display.width / TEXT_X_DIVISOR;
+        UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
+        Paint_DrawString_EN(err_x, err_y, "Échec carte SD !", &Font24, BLACK, WHITE);
         wavesahre_rgb_lcd_display(BlackImage);
         app_cleanup();
         return;
@@ -320,7 +368,7 @@ void app_main(void)
 
     app_state_t state = APP_STATE_FOLDER_SELECTION;
     const char *selected_dir = NULL;
-    char base_path[128];
+    char base_path[BASE_PATH_LEN];
     int8_t index = 0;
     uint16_t prev_x = 0;
     uint16_t prev_y = 0;
@@ -336,12 +384,14 @@ void app_main(void)
             snprintf(base_path, sizeof(base_path), "%s/%s", MOUNT_POINT, selected_dir);
             esp_err_t err = list_files_sorted(base_path);
             if (err == ESP_ERR_INVALID_SIZE) {
-                ESP_LOGW(TAG, "Plus de 256 fichiers BMP détectés, pagination requise");
+                ESP_LOGW(TAG, "Plus de %d fichiers BMP détectés, pagination requise", MAX_BMP_FILES);
             } else if (err != ESP_OK) {
                 ESP_LOGE(TAG, "Erreur lors du listage : %s", esp_err_to_name(err));
             }
             if (bmp_num == 0) {
-                Paint_DrawString_EN(200, 320, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);
+                UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
+                UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR) + 3 * TEXT_LINE_SPACING;
+                Paint_DrawString_EN(nofile_x, nofile_y, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);
                 wavesahre_rgb_lcd_display(BlackImage);
                 app_cleanup();
                 state = APP_STATE_ERROR;
