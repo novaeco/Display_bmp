@@ -88,3 +88,7 @@ See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/l
 ## Troubleshooting
 
 For any technical queries, please open an https://service.waveshare.com/. We will get back to you soon.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE) © 2024 Waveshare team.
