@@ -13,17 +13,19 @@
 ******************************************************************************/ 
 #include "gui_bmp.h"
 
+// Global palette storage populated when reading the BMP file
+static RGBQUAD RGBPAD[256];
+
 // Function to extract pixel color based on the bit depth of the BMP image
 UWORD ExtractPixelColor(UBYTE *row_data, int col, int bBitCount, BMPINF *bmpInfoHeader) {
     UWORD color = 0;
-    static RGBQUAD RGBPAD[256];  // Palette for 256-color images
     
     switch (bBitCount) {
         case 1: {  // 1 bit per pixel (black and white)
             int byte_offset = col / 8;   // 1 byte for every 8 pixels
             int bit_offset = 7 - (col % 8); // High bit first
-            UBYTE bit = (row_data[byte_offset] >> bit_offset) & 0x01;
-            color = bit ? 0xFFFF : 0x0000;  // White or Black
+            UBYTE index = (row_data[byte_offset] >> bit_offset) & 0x01;
+            color = RGB(RGBPAD[index].rgbRed, RGBPAD[index].rgbGreen, RGBPAD[index].rgbBlue);
             break;
         }
         case 4: {  // 4 bits per pixel (16 colors)
@@ -105,6 +107,17 @@ UBYTE GUI_ReadBmp(UWORD Xstart, UWORD Ystart, const char *path) {
     // Parse BMP headers
     BMPFILEHEADER *bmpFileHeader = (BMPFILEHEADER *)file_buffer;
     BMPINF *bmpInfoHeader = (BMPINF *)(file_buffer + sizeof(BMPFILEHEADER));
+
+    // Read the color palette if present
+    if (bmpInfoHeader->bBitCount <= 8) {
+        uint32_t palette_count = bmpInfoHeader->bClrUsed ? bmpInfoHeader->bClrUsed : (1U << bmpInfoHeader->bBitCount);
+        UBYTE *palette_data = file_buffer + sizeof(BMPFILEHEADER) + bmpInfoHeader->bInfoSize;
+        for (uint32_t i = 0; i < palette_count && i < 256; i++) {
+            RGBPAD[i].rgbBlue = palette_data[i * 4];
+            RGBPAD[i].rgbGreen = palette_data[i * 4 + 1];
+            RGBPAD[i].rgbRed = palette_data[i * 4 + 2];
+        }
+    }
 
     // Compute the starting address of pixel data and the row size
     UBYTE *pixel_data = file_buffer + bmpFileHeader->bOffset;
