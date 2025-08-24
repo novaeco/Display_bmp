@@ -1,0 +1,12 @@
+menu "SD card options"
+choice SDMMC_BUS_WIDTH
+    prompt "SDMMC bus width"
+    default SDMMC_BUS_WIDTH_1
+    help
+        Select the data bus width for the SDMMC host.
+config SDMMC_BUS_WIDTH_1
+    bool "1-bit mode"
+config SDMMC_BUS_WIDTH_4
+    bool "4-bit mode"
+endchoice
+endmenu
