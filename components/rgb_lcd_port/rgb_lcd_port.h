@@ -91,6 +91,7 @@
  * @brief Function Declarations
  */
 esp_lcd_panel_handle_t waveshare_esp32_s3_rgb_lcd_init();
+void waveshare_esp32_s3_rgb_lcd_deinit(void);
 /**
  * @brief Turn on the LCD backlight.
  */

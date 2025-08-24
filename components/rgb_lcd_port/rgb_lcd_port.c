@@ -12,12 +12,18 @@
  ******************************************************************************/
 
 #include "rgb_lcd_port.h"
+#include "freertos/semphr.h"
+#include <string.h>
 
 
 const char *TAG = "rgb_lcd_port";
 
 // Handle for the RGB LCD panel
 static esp_lcd_panel_handle_t panel_handle = NULL; // Declare a handle for the LCD panel
+
+// Statically allocated window buffer and its mutex
+static uint8_t *s_window_buf = NULL;
+static SemaphoreHandle_t s_window_buf_mutex = NULL;
 
 /**
  * @brief Initialize the RGB LCD panel on the ESP32-S3
@@ -96,6 +102,20 @@ esp_lcd_panel_handle_t waveshare_esp32_s3_rgb_lcd_init()
     // Initialize the RGB LCD panel
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
 
+    // Allocate the window buffer and its mutex
+    if (!s_window_buf) {
+        s_window_buf = heap_caps_malloc(EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES * 2, MALLOC_CAP_DMA);
+        if (!s_window_buf) {
+            ESP_LOGE(TAG, "Failed to allocate window buffer");
+        }
+    }
+    if (!s_window_buf_mutex) {
+        s_window_buf_mutex = xSemaphoreCreateMutex();
+        if (!s_window_buf_mutex) {
+            ESP_LOGE(TAG, "Failed to create window buffer mutex");
+        }
+    }
+
     // Return success status
     return panel_handle;
 }
@@ -128,29 +148,27 @@ void wavesahre_rgb_lcd_display_window(int16_t Xstart, int16_t Ystart, int16_t Xe
     int crop_width = Xend - Xstart;
     int crop_height = Yend - Ystart;
 
-    // Allocate memory for the cropped image data
-    uint8_t *dst_data = (uint8_t *)malloc(crop_width * crop_height * 2); // 2 bytes per pixel
-    if (!dst_data) {
-        printf("Error: Failed to allocate memory for cropped bitmap.\n");
+    if (crop_width <= 0 || crop_height <= 0 || !Image || !s_window_buf) {
         return;
     }
 
-    // Crop the image data (copy each row of the selected region)
+    if (s_window_buf_mutex) {
+        xSemaphoreTake(s_window_buf_mutex, portMAX_DELAY);
+    }
+
+    // Copy the image data into the pre-allocated window buffer
     for (int y = 0; y < crop_height; y++) {
-        // Calculate the source row start in the original image buffer
         const uint8_t *src_row = Image + ((Ystart + y) * EXAMPLE_LCD_H_RES + Xstart) * 2;
-        // Calculate the destination row start in the cropped buffer
-        uint8_t *dst_row = dst_data + y * crop_width * 2;
-        // Copy the row data
+        uint8_t *dst_row = s_window_buf + y * crop_width * 2;
         memcpy(dst_row, src_row, crop_width * 2);
     }
 
     // Draw the cropped region onto the LCD at the specified coordinates
-    // The esp_lcd_panel_draw_bitmap function uses absolute screen coordinates.
-    esp_lcd_panel_draw_bitmap(panel_handle, Xstart, Ystart, Xend, Yend, dst_data);
+    esp_lcd_panel_draw_bitmap(panel_handle, Xstart, Ystart, Xend, Yend, s_window_buf);
 
-    // Free the allocated memory for the cropped image buffer
-    free(dst_data);
+    if (s_window_buf_mutex) {
+        xSemaphoreGive(s_window_buf_mutex);
+    }
 }
 
 
@@ -171,6 +189,22 @@ void wavesahre_rgb_lcd_display(uint8_t *Image)
 void waveshare_get_frame_buffer(void **buf1, void **buf2)
 {
     ESP_ERROR_CHECK(esp_lcd_rgb_panel_get_frame_buffer(panel_handle, 2, buf1, buf2));
+}
+
+void waveshare_esp32_s3_rgb_lcd_deinit(void)
+{
+    if (s_window_buf_mutex) {
+        vSemaphoreDelete(s_window_buf_mutex);
+        s_window_buf_mutex = NULL;
+    }
+    if (s_window_buf) {
+        free(s_window_buf);
+        s_window_buf = NULL;
+    }
+    if (panel_handle) {
+        esp_lcd_panel_del(panel_handle);
+        panel_handle = NULL;
+    }
 }
 /**
  * @brief Turn on the RGB LCD screen backlight.
