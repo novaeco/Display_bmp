@@ -60,7 +60,7 @@ void DEV_GPIO_INT(int32_t Pin, gpio_isr_t isr_handler)
 {
     // Zero-initialize the GPIO configuration structure
     gpio_config_t io_conf = {};
-    io_conf.intr_type = GPIO_INTR_POSEDGE;        // Trigger on negative edge (falling edge)
+    io_conf.intr_type = GPIO_INTR_NEGEDGE;        // Trigger on negative edge (falling edge)
     io_conf.mode = GPIO_MODE_INPUT;               // Set pin as input mode
     io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE; // Disable pull-down
     io_conf.pull_up_en = GPIO_PULLUP_ENABLE;      // Enable pull-up resistor
