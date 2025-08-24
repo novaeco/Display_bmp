@@ -48,6 +48,8 @@
 #define BTN_LABEL_OFFSET_Y       12
 #define BASE_PATH_LEN            128
 #define PAINT_SCALE              65
+#define HOME_TOUCH_WIDTH         NAV_MARGIN
+#define HOME_TOUCH_HEIGHT        NAV_TOUCH_HEIGHT
 
 static char *BmpPath[MAX_BMP_FILES];        // Tableau pour stocker les chemins des fichiers BMP
 static uint8_t bmp_num;           // Nombre de fichiers BMP trouvés
@@ -71,6 +73,12 @@ typedef enum {
     APP_STATE_ERROR,
     APP_STATE_EXIT
 } app_state_t;
+
+typedef enum {
+    NAV_NONE = 0,
+    NAV_EXIT,
+    NAV_HOME
+} nav_action_t;
 
 static void free_bmp_paths(void);
 
@@ -302,25 +310,31 @@ static void draw_navigation_arrows(void)
     Paint_DrawLine(g_display.width - NAV_MARGIN - NAV_LINE_LEN, NAV_MARGIN, g_display.width - NAV_MARGIN, NAV_MARGIN, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
     Paint_DrawLine(g_display.width - NAV_MARGIN, NAV_MARGIN, g_display.width - NAV_MARGIN - NAV_HEAD_OFFSET, NAV_MARGIN - NAV_HEAD_Y_OFFSET,  RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
     Paint_DrawLine(g_display.width - NAV_MARGIN, NAV_MARGIN, g_display.width - NAV_MARGIN - NAV_HEAD_OFFSET, NAV_MARGIN + NAV_HEAD_Y_OFFSET, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+
+    // Bouton Home (lettre H dans le coin supérieur gauche)
+    Paint_DrawString_EN(2, NAV_MARGIN, "H", &Font16, BLUE, WHITE);
 }
 
-static bool handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
+static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
 {
     touch_gt911_point_t point_data;
     if (xQueueReceive(s_touch_queue, &point_data, pdMS_TO_TICKS(50)) != pdTRUE) {
-        return false;
+        return NAV_NONE;
     }
     if (point_data.cnt == 2) {
-        return true;
+        return NAV_EXIT;
     }
     if (point_data.cnt != 1) {
-        return false;
+        return NAV_NONE;
     }
     uint16_t tx = point_data.x[0];
     uint16_t ty = point_data.y[0];
     orient_coords(&tx, &ty);
     if ((*prev_x == tx) && (*prev_y == ty)) {
-        return false;
+        return NAV_NONE;
+    }
+    if (tx < HOME_TOUCH_WIDTH && ty <= HOME_TOUCH_HEIGHT) {
+        return NAV_HOME;
     }
     if (tx >= NAV_MARGIN && tx <= NAV_MARGIN + NAV_LINE_LEN && ty >= 0 && ty <= NAV_TOUCH_HEIGHT) {
         (*idx)--;
@@ -345,7 +359,7 @@ static bool handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pre
         *prev_x = tx;
         *prev_y = ty;
     }
-    return false;
+    return NAV_NONE;
 }
 
 static void process_background_tasks(void)
@@ -407,11 +421,22 @@ void app_main(void)
             }
             break;
 
-        case APP_STATE_NAVIGATION:
-            if (handle_touch_navigation(&index, &prev_x, &prev_y)) {
+        case APP_STATE_NAVIGATION: {
+            nav_action_t act = handle_touch_navigation(&index, &prev_x, &prev_y);
+            if (act == NAV_EXIT) {
                 state = APP_STATE_EXIT;
+            } else if (act == NAV_HOME) {
+                free_bmp_paths();
+                index = 0;
+                prev_x = 0;
+                prev_y = 0;
+                selected_dir = NULL;
+                Paint_Clear(WHITE);
+                wavesahre_rgb_lcd_display(BlackImage);
+                state = APP_STATE_FOLDER_SELECTION;
             }
             break;
+        }
 
         case APP_STATE_ERROR:
             vTaskDelay(portMAX_DELAY);
