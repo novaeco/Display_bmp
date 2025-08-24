@@ -33,6 +33,9 @@
 #define EXAMPLE_PIN_CLK GPIO_NUM_12          // GPIO pin for SD card clock
 #define EXAMPLE_PIN_CMD GPIO_NUM_11          // GPIO pin for SD card command line
 #define EXAMPLE_PIN_D0  GPIO_NUM_13          // GPIO pin for SD card data line (D0)
+#define EXAMPLE_PIN_D1  GPIO_NUM_14          // GPIO pin for SD card data line (D1)
+#define EXAMPLE_PIN_D2  GPIO_NUM_21          // GPIO pin for SD card data line (D2)
+#define EXAMPLE_PIN_D3  GPIO_NUM_47          // GPIO pin for SD card data line (D3)
 
 // Function declarations
 

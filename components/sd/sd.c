@@ -50,14 +50,22 @@ esp_err_t sd_mmc_init() {
 
     // Slot configuration for SDMMC
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-    slot_config.width = 1;
     slot_config.clk = EXAMPLE_PIN_CLK;
     slot_config.cmd = EXAMPLE_PIN_CMD;
     slot_config.d0 = EXAMPLE_PIN_D0;
+#ifdef CONFIG_SDMMC_BUS_WIDTH_4
+    slot_config.width = 4;
+    slot_config.d1 = EXAMPLE_PIN_D1;
+    slot_config.d2 = EXAMPLE_PIN_D2;
+    slot_config.d3 = EXAMPLE_PIN_D3;
+#else
+    slot_config.width = 1;
+#endif
     // Enable internal pull-ups on the GPIOs
     slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
 
     ESP_LOGI(SD_TAG, "Mounting filesystem");
+    ESP_LOGI(SD_TAG, "SD bus width: %d", slot_config.width);
 
     // Mount the filesystem and initialize the SD card
     ret = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);

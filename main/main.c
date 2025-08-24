@@ -70,6 +70,16 @@ void free_bmp_paths(void)
     bmp_num = 0;
 }
 
+static void app_cleanup(void)
+{
+    esp_err_t unmount_ret = sd_mmc_unmount();
+    if (unmount_ret != ESP_OK) {
+        ESP_LOGW(TAG, "sd_mmc_unmount a échoué : %s", esp_err_to_name(unmount_ret));
+    }
+    free_bmp_paths();
+    free(BlackImage);
+}
+
 static bool init_peripherals(void)
 {
     esp_lcd_touch_handle_t touch = touch_gt911_init();
@@ -204,8 +214,7 @@ static void handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pre
 void app_main(void)
 {
     if (!init_peripherals()) {
-        free_bmp_paths();
-        free(BlackImage);
+        app_cleanup();
         return;
     }
 
@@ -214,8 +223,7 @@ void app_main(void)
         ESP_LOGE(TAG, "sd_mmc_init a échoué : %s", esp_err_to_name(sd_ret));
         Paint_DrawString_EN(200, 200, "Échec carte SD !", &Font24, BLACK, WHITE);
         wavesahre_rgb_lcd_display(BlackImage);
-        free_bmp_paths();
-        free(BlackImage);
+        app_cleanup();
         return;
     }
 
@@ -235,8 +243,7 @@ void app_main(void)
             if (bmp_num == 0) {
                 Paint_DrawString_EN(200, 320, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);
                 wavesahre_rgb_lcd_display(BlackImage);
-                free_bmp_paths();
-                free(BlackImage);
+                app_cleanup();
                 state = APP_STATE_ERROR;
             } else {
                 draw_navigation_arrows();
@@ -255,4 +262,5 @@ void app_main(void)
         }
         vTaskDelay(30);
     }
+    app_cleanup();
 }
