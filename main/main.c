@@ -19,9 +19,11 @@
 
 #include <dirent.h>          // En-tête pour les opérations sur répertoires
 #include <stdio.h>
+#include "esp_log.h"
 
 static char *BmpPath[256];        // Tableau pour stocker les chemins des fichiers BMP
 static uint8_t bmp_num;           // Nombre de fichiers BMP trouvés
+static const char *TAG = "APP";
 
 // Fonction listant tous les fichiers BMP d'un répertoire
 void list_files(const char *base_path) {
@@ -79,8 +81,10 @@ void app_main()
     UBYTE *BlackImage;
     if ((BlackImage = (UBYTE *)malloc(Imagesize)) == NULL) // Vérifie si l'allocation mémoire a réussi
     {
-        printf("Échec d’allocation mémoire pour le framebuffer...\r\n");
-        exit(0); // Quitte en cas d'échec d'allocation mémoire
+        ESP_LOGE(TAG, "Échec d’allocation mémoire pour le framebuffer...");
+        free_bmp_paths();
+        free(BlackImage);
+        return; // Quitte proprement en cas d'échec d'allocation mémoire
     }
 
     // Initialise la toile graphique avec le tampon alloué
@@ -169,6 +173,7 @@ void app_main()
             Paint_DrawString_EN(200, 320, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);
             wavesahre_rgb_lcd_display(BlackImage);
             free_bmp_paths();
+            free(BlackImage);
             return;
         }
         else
@@ -190,6 +195,7 @@ void app_main()
         Paint_DrawString_EN(200, 200, "Échec carte SD !", &Font24, BLACK, WHITE);
         wavesahre_rgb_lcd_display(BlackImage);
         free_bmp_paths();
+        free(BlackImage);
         return;
 
     }
