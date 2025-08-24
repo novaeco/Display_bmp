@@ -12,9 +12,46 @@
 *
 ******************************************************************************/ 
 #include "gui_bmp.h"
+#include <string.h>
+#include "esp_timer.h"
 
 // Global palette storage populated when reading the BMP file
 static RGBQUAD RGBPAD[256];
+
+// Convert one row of an 8bpp paletted BMP to RGB565
+static void ConvertRow8To565(UWORD *dst, const UBYTE *src, int width)
+{
+    for (int i = 0; i < width; i++) {
+        const RGBQUAD *c = &RGBPAD[src[i]];
+        dst[i] = RGB(c->rgbRed, c->rgbGreen, c->rgbBlue);
+    }
+}
+
+// Convert one row of a 16bpp BMP to RGB565
+static void ConvertRow16To565(UWORD *dst, const UBYTE *src, int width, const BMPINF *hdr)
+{
+    const UWORD *s = (const UWORD *)src;
+    if (hdr->bInfoSize == 0x38) {
+        memcpy(dst, s, width * sizeof(UWORD));
+    } else if ((hdr->bInfoSize == 0x28) && (hdr->bCompression == 0x00)) {
+        for (int i = 0; i < width; i++) {
+            UWORD pixel = s[i];
+            UWORD r = (pixel >> 10) & 0x1F;
+            UWORD g = (pixel >> 5) & 0x1F;
+            UWORD b = pixel & 0x1F;
+            dst[i] = (r << 11) | (((g << 1) | (g >> 4)) << 5) | b;
+        }
+    }
+}
+
+// Convert one row of a 24bpp BMP to RGB565
+static void ConvertRow24To565(UWORD *dst, const UBYTE *src, int width)
+{
+    for (int i = 0; i < width; i++) {
+        const UBYTE *p = src + i * 3;
+        dst[i] = RGB(p[2], p[1], p[0]);
+    }
+}
 
 // Function to extract pixel color based on the bit depth of the BMP image
 UWORD ExtractPixelColor(UBYTE *row_data, int col, int bBitCount, BMPINF *bmpInfoHeader) {
@@ -116,20 +153,51 @@ UBYTE GUI_ReadBmp(UWORD Xstart, UWORD Ystart, const char *path) {
     // Seek to the beginning of the pixel data
     fseek(fp, bmpFileHeader.bOffset, SEEK_SET);
 
-    // Read each row, convert and display immediately
+    UWORD *row_565 = malloc(bmpInfoHeader.bWidth * sizeof(UWORD));
+    if (!row_565) {
+        free(row_buffer);
+        fclose(fp);
+        return 0;
+    }
+
+    int64_t start_time = esp_timer_get_time();
+
     for (int row = 0; row < bmpInfoHeader.bHeight; row++) {
         if (fread(row_buffer, row_bytes, 1, fp) != 1) {
             free(row_buffer);
+            free(row_565);
             fclose(fp);
             return 0;
         }
-        for (int col = 0; col < bmpInfoHeader.bWidth; col++) {
-            UWORD color = ExtractPixelColor(row_buffer, col, bmpInfoHeader.bBitCount, &bmpInfoHeader);
-            Paint_SetPixel(col + Xstart, Ystart + bmpInfoHeader.bHeight - row - 1, color);
+
+        switch (bmpInfoHeader.bBitCount) {
+        case 8:
+            ConvertRow8To565(row_565, row_buffer, bmpInfoHeader.bWidth);
+            break;
+        case 16:
+            ConvertRow16To565(row_565, row_buffer, bmpInfoHeader.bWidth, &bmpInfoHeader);
+            break;
+        case 24:
+            ConvertRow24To565(row_565, row_buffer, bmpInfoHeader.bWidth);
+            break;
+        default:
+            for (int col = 0; col < bmpInfoHeader.bWidth; col++) {
+                row_565[col] = ExtractPixelColor(row_buffer, col, bmpInfoHeader.bBitCount, &bmpInfoHeader);
+            }
+            break;
         }
+
+        UBYTE *dst = Paint.Image +
+                     (Ystart + bmpInfoHeader.bHeight - row - 1) * Paint.WidthByte +
+                     Xstart * 2;
+        memcpy(dst, row_565, bmpInfoHeader.bWidth * sizeof(UWORD));
     }
 
+    int64_t end_time = esp_timer_get_time();
+    printf("GUI_ReadBmp render time: %lld us\n", (long long)(end_time - start_time));
+
     free(row_buffer);
+    free(row_565);
     fclose(fp);
     return 1;  // Return success
 }
