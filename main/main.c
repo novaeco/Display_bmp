@@ -37,20 +37,18 @@
 #define TEXT_X_DIVISOR           5  
 #define TEXT_Y1_DIVISOR          3  
 #define TEXT_LINE_SPACING        40  
-#define BTN_WIDTH                320  
-#define BTN_HEIGHT               120  
-#define NAV_MARGIN               20  
-#define NAV_LINE_LEN             60  
-#define NAV_TOUCH_HEIGHT         60  
-#define NAV_HEAD_OFFSET          25  
-#define NAV_HEAD_Y_OFFSET        15  
-#define BTN_LABEL_L_OFFSET_X     60  
-#define BTN_LABEL_R_OFFSET_X     40  
-#define BTN_LABEL_OFFSET_Y       12  
-#define BASE_PATH_LEN            128  
+#define BTN_WIDTH                320
+#define BTN_HEIGHT               120
+#define NAV_MARGIN               20
+#define ARROW_WIDTH              60
+#define ARROW_HEIGHT             60
+#define BTN_LABEL_L_OFFSET_X     60
+#define BTN_LABEL_R_OFFSET_X     40
+#define BTN_LABEL_OFFSET_Y       12
+#define BASE_PATH_LEN            128
 #define PAINT_SCALE              65
 #define HOME_TOUCH_WIDTH         NAV_MARGIN
-#define HOME_TOUCH_HEIGHT        NAV_TOUCH_HEIGHT
+#define HOME_TOUCH_HEIGHT        ARROW_HEIGHT
 #define FILENAME_BAR_PAD         2
 
 static char *BmpPath[MAX_BMP_FILES];        // Tableau pour stocker les chemins des fichiers BMP  
@@ -346,32 +344,27 @@ static const char *draw_folder_selection(void)
     return selected_dir;  
 }  
 
-static void draw_left_arrow(UWORD color)  
-{  
-    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_LINE_LEN, NAV_MARGIN,  
-                   color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);  
-    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_HEAD_OFFSET,  
-                   NAV_MARGIN - NAV_HEAD_Y_OFFSET, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);  
-    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_HEAD_OFFSET,  
-                   NAV_MARGIN + NAV_HEAD_Y_OFFSET, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);  
-}  
+static void draw_left_arrow(void)
+{
+    Paint_DrawRectangle(NAV_MARGIN, NAV_MARGIN,
+                        NAV_MARGIN + ARROW_WIDTH, NAV_MARGIN + ARROW_HEIGHT,
+                        WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    GUI_ReadBmp(NAV_MARGIN, NAV_MARGIN, "pic/arrow_left.bmp");
+}
 
-static void draw_right_arrow(UWORD color)  
-{  
-    Paint_DrawLine(g_display.width - NAV_MARGIN - NAV_LINE_LEN, NAV_MARGIN,  
-                   g_display.width - NAV_MARGIN, NAV_MARGIN, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);  
-    Paint_DrawLine(g_display.width - NAV_MARGIN, NAV_MARGIN,  
-                   g_display.width - NAV_MARGIN - NAV_HEAD_OFFSET,  
-                   NAV_MARGIN - NAV_HEAD_Y_OFFSET, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);  
-    Paint_DrawLine(g_display.width - NAV_MARGIN, NAV_MARGIN,  
-                   g_display.width - NAV_MARGIN - NAV_HEAD_OFFSET,  
-                   NAV_MARGIN + NAV_HEAD_Y_OFFSET, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);  
-}  
+static void draw_right_arrow(void)
+{
+    UWORD x = g_display.width - NAV_MARGIN - ARROW_WIDTH;
+    Paint_DrawRectangle(x, NAV_MARGIN,
+                        x + ARROW_WIDTH, NAV_MARGIN + ARROW_HEIGHT,
+                        WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    GUI_ReadBmp(x, NAV_MARGIN, "pic/arrow_right.bmp");
+}
 
 static void draw_navigation_arrows(void)
 {
-    draw_left_arrow(RED);
-    draw_right_arrow(RED);
+    draw_left_arrow();
+    draw_right_arrow();
     // Bouton Home (lettre H dans le coin supérieur gauche)
     Paint_DrawString_EN(2, NAV_MARGIN, "H", &Font16, BLUE, WHITE);
 }
@@ -416,12 +409,12 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
     if (point_data.cnt == 2) {  
         return NAV_EXIT;  
     }  
-    if (point_data.cnt == 0) {  
-        if (nav_hl == NAV_HL_LEFT) {  
-            draw_left_arrow(RED);  
-        } else if (nav_hl == NAV_HL_RIGHT) {  
-            draw_right_arrow(RED);  
-        }  
+    if (point_data.cnt == 0) {
+        if (nav_hl == NAV_HL_LEFT) {
+            draw_left_arrow();
+        } else if (nav_hl == NAV_HL_RIGHT) {
+            draw_right_arrow();
+        }
         if (nav_hl != NAV_HL_NONE) {  
             wavesahre_rgb_lcd_display(BlackImage);  
         }  
@@ -442,45 +435,48 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
     if (tx < HOME_TOUCH_WIDTH && ty <= HOME_TOUCH_HEIGHT) {  
         return NAV_HOME;  
     }  
-    if (tx >= NAV_MARGIN && tx <= NAV_MARGIN + NAV_LINE_LEN && ty >= 0 && ty <= NAV_TOUCH_HEIGHT) {  
-        (*idx)--;  
-        if (*idx < 0) {  
-            *idx = bmp_num - 1;  
-        }  
+    if (tx >= NAV_MARGIN && tx < NAV_MARGIN + ARROW_WIDTH &&
+        ty >= NAV_MARGIN && ty < NAV_MARGIN + ARROW_HEIGHT) {
+        (*idx)--;
+        if (*idx < 0) {
+            *idx = bmp_num - 1;
+        }
         Paint_Clear(WHITE);
         GUI_ReadBmp(0, 0, BmpPath[*idx]);
         draw_navigation_arrows();
         draw_filename_bar(BmpPath[*idx]);
-        draw_left_arrow(GRAY);
+        draw_left_arrow();
         wavesahre_rgb_lcd_display(BlackImage);
         nav_hl = NAV_HL_LEFT;
-        *prev_x = tx;  
-        *prev_y = ty;  
-    } else if (tx >= g_display.width - NAV_MARGIN - NAV_LINE_LEN && tx <= g_display.width - NAV_MARGIN && ty >= 0 && ty <= NAV_TOUCH_HEIGHT) {  
-        (*idx)++;  
-        if (*idx > bmp_num - 1) {  
-            *idx = 0;  
-        }  
+        *prev_x = tx;
+        *prev_y = ty;
+    } else if (tx >= g_display.width - NAV_MARGIN - ARROW_WIDTH &&
+               tx < g_display.width - NAV_MARGIN &&
+               ty >= NAV_MARGIN && ty < NAV_MARGIN + ARROW_HEIGHT) {
+        (*idx)++;
+        if (*idx > bmp_num - 1) {
+            *idx = 0;
+        }
         Paint_Clear(WHITE);
         GUI_ReadBmp(0, 0, BmpPath[*idx]);
         draw_navigation_arrows();
         draw_filename_bar(BmpPath[*idx]);
-        draw_right_arrow(GRAY);
+        draw_right_arrow();
         wavesahre_rgb_lcd_display(BlackImage);
         nav_hl = NAV_HL_RIGHT;
-        *prev_x = tx;  
-        *prev_y = ty;  
-    } else {  
-        if (nav_hl == NAV_HL_LEFT) {  
-            draw_left_arrow(RED);  
-            wavesahre_rgb_lcd_display(BlackImage);  
-            nav_hl = NAV_HL_NONE;  
-        } else if (nav_hl == NAV_HL_RIGHT) {  
-            draw_right_arrow(RED);  
-            wavesahre_rgb_lcd_display(BlackImage);  
-            nav_hl = NAV_HL_NONE;  
-        }  
-    }  
+        *prev_x = tx;
+        *prev_y = ty;
+    } else {
+        if (nav_hl == NAV_HL_LEFT) {
+            draw_left_arrow();
+            wavesahre_rgb_lcd_display(BlackImage);
+            nav_hl = NAV_HL_NONE;
+        } else if (nav_hl == NAV_HL_RIGHT) {
+            draw_right_arrow();
+            wavesahre_rgb_lcd_display(BlackImage);
+            nav_hl = NAV_HL_NONE;
+        }
+    }
     return NAV_NONE;  
 }  
 
