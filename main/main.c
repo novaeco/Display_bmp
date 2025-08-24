@@ -19,6 +19,7 @@
 
 #include <dirent.h>          // En-tête pour les opérations sur répertoires
 #include <stdio.h>
+#include <strings.h>
 #include "esp_log.h"
 #include "esp_err.h"
 #include <stdbool.h>
@@ -58,6 +59,10 @@ void list_files(const char *base_path) {
                 }
                 size_t length = strlen(base_path) + strlen(file_name) + 2; // 1 pour '/' et 1 pour '\0'
                 BmpPath[i] = malloc(length);  // Alloue la mémoire pour le chemin du BMP
+                if (BmpPath[i] == NULL) {
+                    ESP_LOGE(TAG, "Échec d'allocation mémoire pour le chemin BMP");
+                    break;
+                }
                 snprintf(BmpPath[i], length, "%s/%s", base_path, file_name); // Enregistre le chemin complet
                 i++;
             }
@@ -276,6 +281,7 @@ void app_main(void)
         case APP_STATE_FOLDER_SELECTION:
             selected_dir = draw_folder_selection();
             snprintf(base_path, sizeof(base_path), "%s/%s", MOUNT_POINT, selected_dir);
+            free_bmp_paths();
             list_files(base_path);
             if (bmp_num == 0) {
                 Paint_DrawString_EN(200, 320, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);
