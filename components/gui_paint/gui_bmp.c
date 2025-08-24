@@ -87,56 +87,49 @@ UBYTE GUI_ReadBmp(UWORD Xstart, UWORD Ystart, const char *path) {
     }
     printf("open: %s\n", path);  // Print the file path
     
-    // Load the entire BMP file into memory
-    fseek(fp, 0, SEEK_END);  // Seek to the end of the file to get the size
-    size_t file_size = ftell(fp);  // Get the file size
-    fseek(fp, 0, SEEK_SET);  // Seek back to the beginning of the file
+    // Read and parse BMP headers
+    BMPFILEHEADER bmpFileHeader;
+    BMPINF bmpInfoHeader;
+    fread(&bmpFileHeader, sizeof(BMPFILEHEADER), 1, fp);
+    fread(&bmpInfoHeader, sizeof(BMPINF), 1, fp);
 
-    // Allocate memory to store the file content
-    UBYTE *file_buffer = malloc(file_size);
-    if (!file_buffer) {
-        Debug("Memory allocation failed\n");  // Print error if memory allocation fails
+    // Read the color palette if present
+    if (bmpInfoHeader.bBitCount <= 8) {
+        uint32_t palette_count = bmpInfoHeader.bClrUsed ? bmpInfoHeader.bClrUsed : (1U << bmpInfoHeader.bBitCount);
+        if (palette_count > 256) {
+            palette_count = 256;
+        }
+        fread(RGBPAD, sizeof(RGBQUAD), palette_count, fp);
+    }
+
+    // Compute the row size and allocate a buffer for one row
+    int row_bytes = ((bmpInfoHeader.bWidth * bmpInfoHeader.bBitCount + 31) / 32) * 4;
+    UBYTE *row_buffer = malloc(row_bytes);
+    if (!row_buffer) {
+        Debug("Memory allocation failed\n");
         fclose(fp);
         return 0;
     }
-    
-    // Read the file content into memory
-    fread(file_buffer, file_size, 1, fp);
-    fclose(fp);  // Close the file after reading
 
-    // Parse BMP headers
-    BMPFILEHEADER *bmpFileHeader = (BMPFILEHEADER *)file_buffer;
-    BMPINF *bmpInfoHeader = (BMPINF *)(file_buffer + sizeof(BMPFILEHEADER));
+    printf("bBitCount = %d\n", bmpInfoHeader.bBitCount);  // Print the number of bits per pixel
 
-    // Read the color palette if present
-    if (bmpInfoHeader->bBitCount <= 8) {
-        uint32_t palette_count = bmpInfoHeader->bClrUsed ? bmpInfoHeader->bClrUsed : (1U << bmpInfoHeader->bBitCount);
-        UBYTE *palette_data = file_buffer + sizeof(BMPFILEHEADER) + bmpInfoHeader->bInfoSize;
-        for (uint32_t i = 0; i < palette_count && i < 256; i++) {
-            RGBPAD[i].rgbBlue = palette_data[i * 4];
-            RGBPAD[i].rgbGreen = palette_data[i * 4 + 1];
-            RGBPAD[i].rgbRed = palette_data[i * 4 + 2];
+    // Seek to the beginning of the pixel data
+    fseek(fp, bmpFileHeader.bOffset, SEEK_SET);
+
+    // Read each row, convert and display immediately
+    for (int row = 0; row < bmpInfoHeader.bHeight; row++) {
+        if (fread(row_buffer, row_bytes, 1, fp) != 1) {
+            free(row_buffer);
+            fclose(fp);
+            return 0;
+        }
+        for (int col = 0; col < bmpInfoHeader.bWidth; col++) {
+            UWORD color = ExtractPixelColor(row_buffer, col, bmpInfoHeader.bBitCount, &bmpInfoHeader);
+            Paint_SetPixel(col + Xstart, Ystart + bmpInfoHeader.bHeight - row - 1, color);
         }
     }
 
-    // Compute the starting address of pixel data and the row size
-    UBYTE *pixel_data = file_buffer + bmpFileHeader->bOffset;
-    int row_bytes = ((bmpInfoHeader->bWidth * bmpInfoHeader->bBitCount + 31) / 32) * 4;
-
-    printf("bBitCount = %d\n", bmpInfoHeader->bBitCount);  // Print the number of bits per pixel
-
-    // Loop through the rows and columns of the image and extract pixel colors
-    for (int row = 0; row < bmpInfoHeader->bHeight; row++) {
-        UBYTE *row_data = pixel_data + row * row_bytes;
-        
-        // Loop through each column (pixel) in the row
-        for (int col = 0; col < bmpInfoHeader->bWidth; col++) {
-            // Extract the pixel color and display it on the screen
-            UWORD color = ExtractPixelColor(row_data, col, bmpInfoHeader->bBitCount, bmpInfoHeader);
-            Paint_SetPixel(col + Xstart, Ystart + bmpInfoHeader->bHeight - row - 1, color);
-        }
-    }
-
-    free(file_buffer);  // Free the memory used for the file buffer
+    free(row_buffer);
+    fclose(fp);
     return 1;  // Return success
 }
