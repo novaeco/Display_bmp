@@ -19,6 +19,7 @@
 
 #include <dirent.h>          // En-tête pour les opérations sur répertoires
 #include <stdio.h>
+#include <stdlib.h>
 #include <strings.h>
 #include "esp_log.h"
 #include "esp_err.h"
@@ -42,38 +43,59 @@ typedef enum {
     APP_STATE_EXIT
 } app_state_t;
 
-// Fonction listant tous les fichiers BMP d'un répertoire
-void list_files(const char *base_path) {
-    int i = 0;
-    DIR *dir = opendir(base_path);  // Ouvre le répertoire
-    if (dir) {
-        struct dirent *entry;
-        // Parcourt tous les fichiers du répertoire
-        while ((entry = readdir(dir)) != NULL) {
-            const char *file_name = entry->d_name;
-            // Vérifie si le fichier se termine par ".bmp"
-            size_t len = strlen(file_name);
-            if (len > 4 && strcasecmp(&file_name[len - 4], ".bmp") == 0) {
-                if (i >= 256) {
-                    printf("Erreur : quota maximal de chemins BMP atteint (256)\n");
-                    break;
-                }
-                size_t length = strlen(base_path) + strlen(file_name) + 2; // 1 pour '/' et 1 pour '\0'
-                BmpPath[i] = malloc(length);  // Alloue la mémoire pour le chemin du BMP
-                if (BmpPath[i] == NULL) {
-                    ESP_LOGE(TAG, "Échec d'allocation mémoire pour le chemin BMP");
-                    break;
-                }
-                snprintf(BmpPath[i], length, "%s/%s", base_path, file_name); // Enregistre le chemin complet
-                i++;
-            }
-        }
-        bmp_num = i; // Met à jour le nombre de fichiers BMP trouvés
-        closedir(dir); // Ferme le répertoire
-    }
+static void free_bmp_paths(void);
+
+static int bmp_path_cmp(const void *a, const void *b)
+{
+    const char *const *pa = a;
+    const char *const *pb = b;
+    return strcasecmp(*pa, *pb);
 }
 
-void free_bmp_paths(void)
+// Fonction listant et triant tous les fichiers BMP d'un répertoire
+esp_err_t list_files_sorted(const char *base_path)
+{
+    free_bmp_paths();
+    DIR *dir = opendir(base_path);
+    if (dir == NULL) {
+        ESP_LOGE(TAG, "Impossible d'ouvrir le répertoire : %s", base_path);
+        bmp_num = 0;
+        return ESP_FAIL;
+    }
+
+    struct dirent *entry;
+    int i = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        const char *file_name = entry->d_name;
+        size_t len = strlen(file_name);
+        if (len > 4 && strcasecmp(&file_name[len - 4], ".bmp") == 0) {
+            if (i >= 256) {
+                ESP_LOGE(TAG, "Quota maximal de chemins BMP atteint (256)");
+                closedir(dir);
+                bmp_num = i;
+                qsort(BmpPath, bmp_num, sizeof(char *), bmp_path_cmp);
+                return ESP_ERR_INVALID_SIZE;
+            }
+            size_t length = strlen(base_path) + strlen(file_name) + 2;
+            BmpPath[i] = malloc(length);
+            if (BmpPath[i] == NULL) {
+                ESP_LOGE(TAG, "Échec d'allocation mémoire pour le chemin BMP");
+                closedir(dir);
+                bmp_num = i;
+                qsort(BmpPath, bmp_num, sizeof(char *), bmp_path_cmp);
+                return ESP_ERR_NO_MEM;
+            }
+            snprintf(BmpPath[i], length, "%s/%s", base_path, file_name);
+            i++;
+        }
+    }
+    closedir(dir);
+    bmp_num = i;
+    qsort(BmpPath, bmp_num, sizeof(char *), bmp_path_cmp);
+    return ESP_OK;
+}
+
+static void free_bmp_paths(void)
 {
     for (int i = 0; i < bmp_num && i < 256; i++) {
         free(BmpPath[i]);
@@ -312,8 +334,12 @@ void app_main(void)
                 break;
             }
             snprintf(base_path, sizeof(base_path), "%s/%s", MOUNT_POINT, selected_dir);
-            free_bmp_paths();
-            list_files(base_path);
+            esp_err_t err = list_files_sorted(base_path);
+            if (err == ESP_ERR_INVALID_SIZE) {
+                ESP_LOGW(TAG, "Plus de 256 fichiers BMP détectés, pagination requise");
+            } else if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Erreur lors du listage : %s", esp_err_to_name(err));
+            }
             if (bmp_num == 0) {
                 Paint_DrawString_EN(200, 320, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);
                 wavesahre_rgb_lcd_display(BlackImage);
