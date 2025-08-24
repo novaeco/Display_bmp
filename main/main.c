@@ -18,14 +18,15 @@
 #include "sd.h"              // En-tête des opérations sur carte SD  
 #include "config.h"  
 
-#include <dirent.h>          // En-tête pour les opérations sur répertoires  
-#include <stdio.h>  
-#include <stdlib.h>  
-#include <strings.h>  
-#include "esp_log.h"  
-#include "esp_err.h"  
-#include <stdbool.h>  
-#include "freertos/FreeRTOS.h"  
+#include <dirent.h>          // En-tête pour les opérations sur répertoires
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include "esp_log.h"
+#include "esp_err.h"
+#include <stdbool.h>
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"  
 #include "freertos/queue.h"  
 
@@ -47,9 +48,10 @@
 #define BTN_LABEL_R_OFFSET_X     40  
 #define BTN_LABEL_OFFSET_Y       12  
 #define BASE_PATH_LEN            128  
-#define PAINT_SCALE              65  
-#define HOME_TOUCH_WIDTH         NAV_MARGIN  
-#define HOME_TOUCH_HEIGHT        NAV_TOUCH_HEIGHT  
+#define PAINT_SCALE              65
+#define HOME_TOUCH_WIDTH         NAV_MARGIN
+#define HOME_TOUCH_HEIGHT        NAV_TOUCH_HEIGHT
+#define FILENAME_BAR_PAD         2
 
 static char *BmpPath[MAX_BMP_FILES];        // Tableau pour stocker les chemins des fichiers BMP  
 static uint8_t bmp_num;           // Nombre de fichiers BMP trouvés  
@@ -366,13 +368,43 @@ static void draw_right_arrow(UWORD color)
                    NAV_MARGIN + NAV_HEAD_Y_OFFSET, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);  
 }  
 
-static void draw_navigation_arrows(void)  
-{  
-    draw_left_arrow(RED);  
-    draw_right_arrow(RED);  
-    // Bouton Home (lettre H dans le coin supérieur gauche)  
-    Paint_DrawString_EN(2, NAV_MARGIN, "H", &Font16, BLUE, WHITE);  
-}  
+static void draw_navigation_arrows(void)
+{
+    draw_left_arrow(RED);
+    draw_right_arrow(RED);
+    // Bouton Home (lettre H dans le coin supérieur gauche)
+    Paint_DrawString_EN(2, NAV_MARGIN, "H", &Font16, BLUE, WHITE);
+}
+
+static void draw_filename_bar(const char *path)
+{
+    const char *fname = strrchr(path, '/');
+    fname = fname ? fname + 1 : path;
+
+    const sFONT *font = &Font20;
+    UWORD bar_height = font->Height + 2 * FILENAME_BAR_PAD;
+    UWORD y0 = g_display.height - bar_height;
+
+    Paint_DrawRectangle(0, y0, g_display.width, g_display.height,
+                        GRAY, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+
+    UWORD max_chars = (g_display.width - 2 * FILENAME_BAR_PAD) / font->Width;
+    char name_buf[128];
+    if (strlen(fname) > max_chars) {
+        if (max_chars > 3) {
+            strncpy(name_buf, fname, max_chars - 3);
+            name_buf[max_chars - 3] = '\0';
+            strcat(name_buf, "...");
+        } else {
+            strncpy(name_buf, fname, max_chars);
+            name_buf[max_chars] = '\0';
+        }
+        fname = name_buf;
+    }
+
+    Paint_DrawString_EN(FILENAME_BAR_PAD, y0 + FILENAME_BAR_PAD,
+                        fname, font, WHITE, GRAY);
+}
 
 static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)  
 {  
@@ -415,12 +447,13 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
         if (*idx < 0) {  
             *idx = bmp_num - 1;  
         }  
-        Paint_Clear(WHITE);  
-        GUI_ReadBmp(0, 0, BmpPath[*idx]);  
-        draw_navigation_arrows();  
-        draw_left_arrow(GRAY);  
-        wavesahre_rgb_lcd_display(BlackImage);  
-        nav_hl = NAV_HL_LEFT;  
+        Paint_Clear(WHITE);
+        GUI_ReadBmp(0, 0, BmpPath[*idx]);
+        draw_navigation_arrows();
+        draw_filename_bar(BmpPath[*idx]);
+        draw_left_arrow(GRAY);
+        wavesahre_rgb_lcd_display(BlackImage);
+        nav_hl = NAV_HL_LEFT;
         *prev_x = tx;  
         *prev_y = ty;  
     } else if (tx >= g_display.width - NAV_MARGIN - NAV_LINE_LEN && tx <= g_display.width - NAV_MARGIN && ty >= 0 && ty <= NAV_TOUCH_HEIGHT) {  
@@ -428,12 +461,13 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
         if (*idx > bmp_num - 1) {  
             *idx = 0;  
         }  
-        Paint_Clear(WHITE);  
-        GUI_ReadBmp(0, 0, BmpPath[*idx]);  
-        draw_navigation_arrows();  
-        draw_right_arrow(GRAY);  
-        wavesahre_rgb_lcd_display(BlackImage);  
-        nav_hl = NAV_HL_RIGHT;  
+        Paint_Clear(WHITE);
+        GUI_ReadBmp(0, 0, BmpPath[*idx]);
+        draw_navigation_arrows();
+        draw_filename_bar(BmpPath[*idx]);
+        draw_right_arrow(GRAY);
+        wavesahre_rgb_lcd_display(BlackImage);
+        nav_hl = NAV_HL_RIGHT;
         *prev_x = tx;  
         *prev_y = ty;  
     } else {  
