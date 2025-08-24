@@ -42,8 +42,9 @@
 /**
  * @brief Initialize the SD card and mount the FAT filesystem.
  * 
- * @retval ESP_OK if initialization and mounting succeed.
- * @retval ESP_FAIL if an error occurs.
+ * @retval ESP_OK on success.
+ * @retval ESP_ERR_INVALID_STATE if already initialized.
+ * @retval other esp_err_t codes from esp_vfs_fat_sdmmc_mount on failure.
  */
 esp_err_t sd_mmc_init();
 
@@ -51,7 +52,8 @@ esp_err_t sd_mmc_init();
  * @brief Unmount the SD card and release resources.
  * 
  * @retval ESP_OK if unmounting succeeds.
- * @retval ESP_FAIL if an error occurs.
+ * @retval ESP_ERR_INVALID_STATE if the card is not mounted.
+ * @retval other esp_err_t codes from esp_vfs_fat_sdcard_unmount on failure.
  */
 esp_err_t sd_mmc_unmount();
 
@@ -70,7 +72,8 @@ void sd_card_print_info();
  * @param available_capacity Pointer to store the available capacity (in KB).
  * 
  * @retval ESP_OK if memory information is successfully retrieved.
- * @retval ESP_FAIL if an error occurs.
+ * @retval ESP_ERR_INVALID_STATE if the card is not initialized.
+ * @retval other esp_err_t codes translated from FatFs errors.
  */
 esp_err_t read_sd_capacity(size_t *total_capacity, size_t *available_capacity);
 

@@ -13,9 +13,44 @@
  ******************************************************************************/
 
 #include "sd.h"  // Include header file for SD card functions
+#include <stdbool.h>
 
 // Global variable for SD card structure
-static sdmmc_card_t *card;
+static sdmmc_card_t *card = NULL;
+
+// Track initialization state to prevent double mount/unmount
+static bool sd_initialized = false;
+
+// Translate FatFs error codes to esp_err_t
+static esp_err_t ff_result_to_esp_err(FRESULT result) {
+    switch (result) {
+        case FR_OK:
+            return ESP_OK;
+        case FR_DISK_ERR:
+        case FR_INT_ERR:
+        case FR_NOT_READY:
+        case FR_NO_FILESYSTEM:
+        case FR_MKFS_ABORTED:
+        case FR_WRITE_PROTECTED:
+        case FR_INVALID_DRIVE:
+        case FR_DENIED:
+        case FR_EXIST:
+            return ESP_ERR_INVALID_STATE;
+        case FR_TIMEOUT:
+            return ESP_ERR_TIMEOUT;
+        case FR_NO_FILE:
+        case FR_NO_PATH:
+            return ESP_ERR_NOT_FOUND;
+        case FR_INVALID_NAME:
+        case FR_INVALID_PARAMETER:
+            return ESP_ERR_INVALID_ARG;
+        case FR_NOT_ENOUGH_CORE:
+        case FR_TOO_MANY_OPEN_FILES:
+            return ESP_ERR_NO_MEM;
+        default:
+            return ESP_FAIL;
+    }
+}
 
 // Define the mount point for the SD card
 const char mount_point[] = MOUNT_POINT;
@@ -26,11 +61,16 @@ const char mount_point[] = MOUNT_POINT;
  * This function configures the SDMMC peripheral, sets up the host and slot, 
  * and mounts the FAT filesystem from the SD card.
  * 
- * @retval ESP_OK if initialization and mounting succeed.
- * @retval ESP_FAIL if an error occurs during the process.
+ * @retval ESP_OK on success.
+ * @retval ESP_ERR_INVALID_STATE if already initialized.
+ * @retval other esp_err_t codes from esp_vfs_fat_sdmmc_mount on failure.
  */
 esp_err_t sd_mmc_init() {
     esp_err_t ret;
+
+    if (sd_initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
 
     // Configuration for mounting the FAT filesystem
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
@@ -78,8 +118,9 @@ esp_err_t sd_mmc_init() {
             ESP_LOGE(SD_TAG, "Failed to initialize the card (%s). "
                              "Check pull-up resistors on the card lines.", esp_err_to_name(ret));
         }
-        return ESP_FAIL;
+        return ret;
     }
+    sd_initialized = true;
     ESP_LOGI(SD_TAG, "Filesystem mounted");
     return ret;
 }
@@ -91,7 +132,9 @@ esp_err_t sd_mmc_init() {
  * about the SD card to the standard output.
  */
 void sd_card_print_info() {
-    sdmmc_card_print_info(stdout, card);
+    if (card) {
+        sdmmc_card_print_info(stdout, card);
+    }
 }
 
 /**
@@ -101,10 +144,19 @@ void sd_card_print_info() {
  * associated with the SD card are released.
  * 
  * @retval ESP_OK if unmounting succeeds.
- * @retval ESP_FAIL if an error occurs.
+ * @retval ESP_ERR_INVALID_STATE if the card is not mounted.
+ * @retval other esp_err_t codes from esp_vfs_fat_sdcard_unmount on failure.
  */
 esp_err_t sd_mmc_unmount() {
-    return esp_vfs_fat_sdcard_unmount(mount_point, card);
+    if (!card) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t ret = esp_vfs_fat_sdcard_unmount(mount_point, card);
+    if (ret == ESP_OK) {
+        card = NULL;
+        sd_initialized = false;
+    }
+    return ret;
 }
 
 /**
@@ -114,17 +166,21 @@ esp_err_t sd_mmc_unmount() {
  * @param available_capacity Pointer to store the available capacity (in KB).
  * 
  * @retval ESP_OK if memory information is successfully retrieved.
- * @retval ESP_FAIL if an error occurs while fetching capacity information.
+ * @retval ESP_ERR_INVALID_STATE if the card is not initialized.
+ * @retval other esp_err_t codes translated from FatFs errors.
  */
 esp_err_t read_sd_capacity(size_t *total_capacity, size_t *available_capacity) {
+    if (!sd_initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
     FATFS *fs;
     uint32_t free_clusters;
 
     // Get the number of free clusters in the filesystem
-    int res = f_getfree(mount_point, &free_clusters, &fs);
+    FRESULT res = f_getfree(mount_point, &free_clusters, &fs);
     if (res != FR_OK) {
         ESP_LOGE(SD_TAG, "Failed to get number of free clusters (%d)", res);
-        return ESP_FAIL;
+        return ff_result_to_esp_err(res);
     }
 
     // Calculate total and free sectors based on cluster size
