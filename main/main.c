@@ -22,11 +22,17 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include <stdbool.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
 
 static char *BmpPath[256];        // Tableau pour stocker les chemins des fichiers BMP
 static uint8_t bmp_num;           // Nombre de fichiers BMP trouvés
 static const char *TAG = "APP";
 static UBYTE *BlackImage;         // Framebuffer global
+static TaskHandle_t s_touch_task_handle;  // Tâche de traitement tactile
+static QueueHandle_t s_touch_queue;       // File de messages pour événements tactiles
+static esp_lcd_touch_handle_t s_touch_handle; // Handle du contrôleur tactile
 
 typedef enum {
     APP_STATE_FOLDER_SELECTION = 0,
@@ -80,10 +86,27 @@ static void app_cleanup(void)
     free(BlackImage);
 }
 
+static void IRAM_ATTR touch_int_cb(esp_lcd_touch_handle_t tp)
+{
+    BaseType_t hp_task_woken = pdFALSE;
+    vTaskNotifyGiveFromISR(s_touch_task_handle, &hp_task_woken);
+    portYIELD_FROM_ISR(hp_task_woken);
+}
+
+static void touch_task(void *arg)
+{
+    touch_gt911_point_t data;
+    while (1) {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        data = touch_gt911_read_point(1);
+        xQueueSend(s_touch_queue, &data, portMAX_DELAY);
+    }
+}
+
 static bool init_peripherals(void)
 {
-    esp_lcd_touch_handle_t touch = touch_gt911_init();
-    if (touch == NULL) {
+    s_touch_handle = touch_gt911_init();
+    if (s_touch_handle == NULL) {
         ESP_LOGE(TAG, "Échec d'initialisation du contrôleur tactile");
         return false;
     }
@@ -106,6 +129,22 @@ static bool init_peripherals(void)
     Paint_NewImage(BlackImage, EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES, 0, WHITE);
     Paint_SetScale(65);
     Paint_Clear(WHITE);
+
+    s_touch_queue = xQueueCreate(10, sizeof(touch_gt911_point_t));
+    if (s_touch_queue == NULL) {
+        ESP_LOGE(TAG, "Échec de création de la file tactile");
+        return false;
+    }
+    if (xTaskCreate(touch_task, "touch_task", 4096, NULL, 5, &s_touch_task_handle) != pdPASS) {
+        ESP_LOGE(TAG, "Échec de création de la tâche tactile");
+        return false;
+    }
+    esp_err_t err = esp_lcd_touch_register_interrupt_callback(s_touch_handle, touch_int_cb);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Enregistrement du callback tactile échoué : %s", esp_err_to_name(err));
+        return false;
+    }
+
     return true;
 }
 
@@ -144,8 +183,7 @@ static const char *draw_folder_selection(void)
 
     const char *selected_dir = NULL;
     while (selected_dir == NULL) {
-        point_data = touch_gt911_read_point(1);
-        if (point_data.cnt == 1) {
+        if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) == pdTRUE && point_data.cnt == 1) {
             uint16_t tx = point_data.x[0];
             uint16_t ty = point_data.y[0];
             if (tx >= btnL_x0 && tx <= btnL_x1 && ty >= btnL_y0 && ty <= btnL_y1) {
@@ -154,7 +192,6 @@ static const char *draw_folder_selection(void)
                 selected_dir = "Presentation";
             }
         }
-        vTaskDelay(30);
     }
 
     Paint_Clear(WHITE);
@@ -179,8 +216,8 @@ static void draw_navigation_arrows(void)
 
 static void handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
 {
-    touch_gt911_point_t point_data = touch_gt911_read_point(1);
-    if (point_data.cnt != 1) {
+    touch_gt911_point_t point_data;
+    if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) != pdTRUE || point_data.cnt != 1) {
         return;
     }
     if ((*prev_x == point_data.x[0]) && (*prev_y == point_data.y[0])) {
@@ -260,7 +297,6 @@ void app_main(void)
             vTaskDelay(portMAX_DELAY);
             break;
         }
-        vTaskDelay(30);
     }
     app_cleanup();
 }

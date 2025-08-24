@@ -375,7 +375,7 @@ esp_lcd_touch_handle_t touch_gt911_init()
     // Reset the touch screen before usage
     DEV_I2C_Port port = DEV_I2C_Init();  // Initialize I2C port
     IO_EXTENSION_Init();  // Initialize the IO EXTENSION GPIO chip for backlight control
-    DEV_GPIO_Mode(EXAMPLE_PIN_NUM_TOUCH_INT, GPIO_MODE_INPUT_OUTPUT);  // Set GPIO pin mode for interrupt
+    DEV_GPIO_Mode(EXAMPLE_PIN_NUM_TOUCH_INT, GPIO_MODE_OUTPUT);  // Drive INT pin during reset sequence
     IO_EXTENSION_Output(IO_EXTENSION_IO_1, 0);  // Set GPIO for backlight control to low (off)
     
     vTaskDelay(pdMS_TO_TICKS(100));  // Wait for 100ms
@@ -383,8 +383,11 @@ esp_lcd_touch_handle_t touch_gt911_init()
     
     vTaskDelay(pdMS_TO_TICKS(100));  // Wait for another 100ms
     IO_EXTENSION_Output(IO_EXTENSION_IO_1, 1);  // Set GPIO for backlight control to high (on)
-    
+
     vTaskDelay(pdMS_TO_TICKS(200));  // Wait for 200ms to ensure the touch controller is ready
+    // Reconfigure interrupt pin as input to allow GT911 to trigger interrupts
+    DEV_GPIO_Mode(EXAMPLE_PIN_NUM_TOUCH_INT, GPIO_MODE_INPUT);
+    gpio_set_intr_type(EXAMPLE_PIN_NUM_TOUCH_INT, GPIO_INTR_NEGEDGE);
 
     ESP_LOGI(TAG, "Initialize I2C panel IO");  // Log I2C panel I/O initialization
     // Create a new I2C panel I/O handle for the touch controller
