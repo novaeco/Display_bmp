@@ -236,6 +236,18 @@ static bool init_peripherals(void)
     return true;
 }
 
+static void draw_folder_button(UWORD x0, UWORD y0, UWORD x1, UWORD y1,
+                               const char *label, UWORD offset_x, UWORD bg_color)
+{
+    Paint_DrawRectangle(x0, y0, x1, y1, bg_color, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawLine(x0, y0, x1, y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(x1, y0, x1, y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(x1, y1, x0, y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(x0, y1, x0, y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawString_EN(x0 + offset_x, (y0 + y1) / 2 - BTN_LABEL_OFFSET_Y,
+                       label, &Font24, BLACK, bg_color);
+}
+
 static const char *draw_folder_selection(void)
 {
     touch_gt911_point_t point_data;
@@ -257,23 +269,15 @@ static const char *draw_folder_selection(void)
     UWORD btnR_y0 = btnL_y0;
     UWORD btnR_y1 = btnL_y1;
 
-    // Rectangle gauche Reptiles
-    Paint_DrawLine(btnL_x0, btnL_y0, btnL_x1, btnL_y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(btnL_x1, btnL_y0, btnL_x1, btnL_y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(btnL_x1, btnL_y1, btnL_x0, btnL_y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(btnL_x0, btnL_y1, btnL_x0, btnL_y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawString_EN(btnL_x0 + BTN_LABEL_L_OFFSET_X, (btnL_y0 + btnL_y1)/2 - BTN_LABEL_OFFSET_Y, "Reptiles", &Font24, BLACK, WHITE);
-
-    // Rectangle droit Presentation
-    Paint_DrawLine(btnR_x0, btnR_y0, btnR_x1, btnR_y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(btnR_x1, btnR_y0, btnR_x1, btnR_y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(btnR_x1, btnR_y1, btnR_x0, btnR_y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(btnR_x0, btnR_y1, btnR_x0, btnR_y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawString_EN(btnR_x0 + BTN_LABEL_R_OFFSET_X, (btnR_y0 + btnR_y1)/2 - BTN_LABEL_OFFSET_Y, "Presentation", &Font24, BLACK, WHITE);
+    draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                       "Reptiles", BTN_LABEL_L_OFFSET_X, WHITE);
+    draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                       "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
 
     wavesahre_rgb_lcd_display(BlackImage);
 
     const char *selected_dir = NULL;
+    enum { HIGHLIGHT_NONE, HIGHLIGHT_LEFT, HIGHLIGHT_RIGHT } highlight = HIGHLIGHT_NONE;
     while (selected_dir == NULL) {
         if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) == pdTRUE) {
             if (point_data.cnt == 2) {
@@ -284,10 +288,50 @@ static const char *draw_folder_selection(void)
                 uint16_t ty = point_data.y[0];
                 orient_coords(&tx, &ty);
                 if (tx >= btnL_x0 && tx <= btnL_x1 && ty >= btnL_y0 && ty <= btnL_y1) {
-                    selected_dir = "Reptiles";
+                    if (highlight != HIGHLIGHT_LEFT) {
+                        if (highlight == HIGHLIGHT_RIGHT) {
+                            draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                                               "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
+                        }
+                        draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                                           "Reptiles", BTN_LABEL_L_OFFSET_X, GRAY);
+                        wavesahre_rgb_lcd_display(BlackImage);
+                        highlight = HIGHLIGHT_LEFT;
+                    }
                 } else if (tx >= btnR_x0 && tx <= btnR_x1 && ty >= btnR_y0 && ty <= btnR_y1) {
+                    if (highlight != HIGHLIGHT_RIGHT) {
+                        if (highlight == HIGHLIGHT_LEFT) {
+                            draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                                               "Reptiles", BTN_LABEL_L_OFFSET_X, WHITE);
+                        }
+                        draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                                           "Presentation", BTN_LABEL_R_OFFSET_X, GRAY);
+                        wavesahre_rgb_lcd_display(BlackImage);
+                        highlight = HIGHLIGHT_RIGHT;
+                    }
+                } else if (highlight != HIGHLIGHT_NONE) {
+                    if (highlight == HIGHLIGHT_LEFT) {
+                        draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                                           "Reptiles", BTN_LABEL_L_OFFSET_X, WHITE);
+                    } else {
+                        draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                                           "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
+                    }
+                    wavesahre_rgb_lcd_display(BlackImage);
+                    highlight = HIGHLIGHT_NONE;
+                }
+            } else if (point_data.cnt == 0 && highlight != HIGHLIGHT_NONE) {
+                if (highlight == HIGHLIGHT_LEFT) {
+                    draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                                       "Reptiles", BTN_LABEL_L_OFFSET_X, WHITE);
+                    selected_dir = "Reptiles";
+                } else {
+                    draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                                       "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
                     selected_dir = "Presentation";
                 }
+                wavesahre_rgb_lcd_display(BlackImage);
+                highlight = HIGHLIGHT_NONE;
             }
         }
     }
@@ -300,17 +344,32 @@ static const char *draw_folder_selection(void)
     return selected_dir;
 }
 
+static void draw_left_arrow(UWORD color)
+{
+    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_LINE_LEN, NAV_MARGIN,
+                   color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_HEAD_OFFSET,
+                   NAV_MARGIN - NAV_HEAD_Y_OFFSET, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_HEAD_OFFSET,
+                   NAV_MARGIN + NAV_HEAD_Y_OFFSET, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+}
+
+static void draw_right_arrow(UWORD color)
+{
+    Paint_DrawLine(g_display.width - NAV_MARGIN - NAV_LINE_LEN, NAV_MARGIN,
+                   g_display.width - NAV_MARGIN, NAV_MARGIN, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(g_display.width - NAV_MARGIN, NAV_MARGIN,
+                   g_display.width - NAV_MARGIN - NAV_HEAD_OFFSET,
+                   NAV_MARGIN - NAV_HEAD_Y_OFFSET, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+    Paint_DrawLine(g_display.width - NAV_MARGIN, NAV_MARGIN,
+                   g_display.width - NAV_MARGIN - NAV_HEAD_OFFSET,
+                   NAV_MARGIN + NAV_HEAD_Y_OFFSET, color, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
+}
+
 static void draw_navigation_arrows(void)
 {
-    // Flèche gauche
-    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_LINE_LEN, NAV_MARGIN, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_HEAD_OFFSET, NAV_MARGIN - NAV_HEAD_Y_OFFSET,  RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(NAV_MARGIN, NAV_MARGIN, NAV_MARGIN + NAV_HEAD_OFFSET, NAV_MARGIN + NAV_HEAD_Y_OFFSET, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    // Flèche droite
-    Paint_DrawLine(g_display.width - NAV_MARGIN - NAV_LINE_LEN, NAV_MARGIN, g_display.width - NAV_MARGIN, NAV_MARGIN, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(g_display.width - NAV_MARGIN, NAV_MARGIN, g_display.width - NAV_MARGIN - NAV_HEAD_OFFSET, NAV_MARGIN - NAV_HEAD_Y_OFFSET,  RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(g_display.width - NAV_MARGIN, NAV_MARGIN, g_display.width - NAV_MARGIN - NAV_HEAD_OFFSET, NAV_MARGIN + NAV_HEAD_Y_OFFSET, RED, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-
+    draw_left_arrow(RED);
+    draw_right_arrow(RED);
     // Bouton Home (lettre H dans le coin supérieur gauche)
     Paint_DrawString_EN(2, NAV_MARGIN, "H", &Font16, BLUE, WHITE);
 }
@@ -318,11 +377,26 @@ static void draw_navigation_arrows(void)
 static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
 {
     touch_gt911_point_t point_data;
+    static enum { NAV_HL_NONE, NAV_HL_LEFT, NAV_HL_RIGHT } nav_hl = NAV_HL_NONE;
     if (xQueueReceive(s_touch_queue, &point_data, pdMS_TO_TICKS(50)) != pdTRUE) {
         return NAV_NONE;
     }
     if (point_data.cnt == 2) {
         return NAV_EXIT;
+    }
+    if (point_data.cnt == 0) {
+        if (nav_hl == NAV_HL_LEFT) {
+            draw_left_arrow(RED);
+        } else if (nav_hl == NAV_HL_RIGHT) {
+            draw_right_arrow(RED);
+        }
+        if (nav_hl != NAV_HL_NONE) {
+            wavesahre_rgb_lcd_display(BlackImage);
+        }
+        nav_hl = NAV_HL_NONE;
+        *prev_x = 0;
+        *prev_y = 0;
+        return NAV_NONE;
     }
     if (point_data.cnt != 1) {
         return NAV_NONE;
@@ -344,7 +418,9 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
         Paint_Clear(WHITE);
         GUI_ReadBmp(0, 0, BmpPath[*idx]);
         draw_navigation_arrows();
+        draw_left_arrow(GRAY);
         wavesahre_rgb_lcd_display(BlackImage);
+        nav_hl = NAV_HL_LEFT;
         *prev_x = tx;
         *prev_y = ty;
     } else if (tx >= g_display.width - NAV_MARGIN - NAV_LINE_LEN && tx <= g_display.width - NAV_MARGIN && ty >= 0 && ty <= NAV_TOUCH_HEIGHT) {
@@ -355,9 +431,21 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
         Paint_Clear(WHITE);
         GUI_ReadBmp(0, 0, BmpPath[*idx]);
         draw_navigation_arrows();
+        draw_right_arrow(GRAY);
         wavesahre_rgb_lcd_display(BlackImage);
+        nav_hl = NAV_HL_RIGHT;
         *prev_x = tx;
         *prev_y = ty;
+    } else {
+        if (nav_hl == NAV_HL_LEFT) {
+            draw_left_arrow(RED);
+            wavesahre_rgb_lcd_display(BlackImage);
+            nav_hl = NAV_HL_NONE;
+        } else if (nav_hl == NAV_HL_RIGHT) {
+            draw_right_arrow(RED);
+            wavesahre_rgb_lcd_display(BlackImage);
+            nav_hl = NAV_HL_NONE;
+        }
     }
     return NAV_NONE;
 }
