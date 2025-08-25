@@ -42,6 +42,16 @@
 #endif
 #define INACTIVITY_TIMEOUT_MS CONFIG_INACTIVITY_TIMEOUT_MS
 
+#ifndef CONFIG_MIN_BRIGHTNESS
+#warning "CONFIG_MIN_BRIGHTNESS non défini, valeur 25 utilisée"
+#define CONFIG_MIN_BRIGHTNESS 25
+#endif
+
+#ifndef CONFIG_MAX_BRIGHTNESS
+#warning "CONFIG_MAX_BRIGHTNESS non défini, valeur 100 utilisée"
+#define CONFIG_MAX_BRIGHTNESS 100
+#endif
+
 #ifndef CONFIG_LCD_PIXEL_CLOCK_HZ
 #define CONFIG_LCD_PIXEL_CLOCK_HZ 30000000
 #endif

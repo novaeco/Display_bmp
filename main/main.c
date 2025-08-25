@@ -128,16 +128,8 @@ void pm_update_activity(void)
 static void process_background_tasks(void)
 {
     uint8_t batt = battery_get_percentage();
-    uint8_t level;
-    if (batt > 75) {
-        level = 100;
-    } else if (batt > 50) {
-        level = 75;
-    } else if (batt > 25) {
-        level = 50;
-    } else {
-        level = 25;
-    }
+    uint8_t level = CONFIG_MIN_BRIGHTNESS +
+                    (CONFIG_MAX_BRIGHTNESS - CONFIG_MIN_BRIGHTNESS) * batt / 100;
     waveshare_rgb_lcd_set_brightness(level);
 
     TickType_t now = xTaskGetTickCount();
