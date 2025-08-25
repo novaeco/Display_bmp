@@ -34,6 +34,8 @@
 
 #define BASE_PATH_LEN            128
 #define PAINT_SCALE              65
+#define WIFI_CONNECT_TIMEOUT_MS  10000
+#define WIFI_MAX_RETRY           3
 
 char g_base_path[BASE_PATH_LEN];     // Chemin du dossier actuellement affiché
 static const char *TAG = "APP";
@@ -136,7 +138,23 @@ void app_main(void)
         case APP_STATE_SOURCE_SELECTION:
             img_src = draw_source_selection();
             if (img_src == IMAGE_SOURCE_REMOTE) {
-                wifi_init_sta();
+                esp_err_t wifi_ret = ESP_FAIL;
+                for (int attempt = 0; attempt < WIFI_MAX_RETRY && wifi_ret != ESP_OK; ++attempt) {
+                    wifi_ret = wifi_init_sta(WIFI_CONNECT_TIMEOUT_MS);
+                    if (wifi_ret != ESP_OK) {
+                        ESP_LOGW(TAG, "Tentative WiFi %d/%d échouée: %s", attempt + 1,
+                                 WIFI_MAX_RETRY, esp_err_to_name(wifi_ret));
+                        UWORD err_x = g_display.width / TEXT_X_DIVISOR;
+                        UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
+                        Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED, WHITE);
+                        wavesahre_rgb_lcd_display(BlackImage);
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                    }
+                }
+                if (wifi_ret != ESP_OK) {
+                    state = APP_STATE_ERROR;
+                    break;
+                }
                 image_fetch_http_to_sd(CONFIG_IMAGE_FETCH_URL, MOUNT_POINT "/remote.bmp");
                 snprintf(g_base_path, sizeof(g_base_path), "%s", MOUNT_POINT);
                 bmp_page_start = 0;
