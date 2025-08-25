@@ -2,8 +2,8 @@
  * | Fichier    :   main.c  
  * | Auteur     :   équipe Waveshare  
  * | Rôle       :   Fonction principale  
- * | Description:   Lit des fichiers image depuis la carte SD et les affiche à l'écran.
- * |                Utiliser l'écran tactile pour passer d'une image à l'autre.
+ * | Description:   Lit des fichiers BMP depuis la carte SD et les affiche à l'écran.  
+ * |                Utiliser l'écran tactile pour passer d'une image à l'autre.  
  *----------------  
  * | Version    :   V1.0  
  * | Date       :   2024-12-06  
@@ -12,8 +12,8 @@
  ******************************************************************************/  
 
 #include "rgb_lcd_port.h"    // En-tête du pilote LCD RGB Waveshare  
-#include "gui_paint.h"       // En-tête des fonctions de dessin graphique
-#include "gui_image.h"       // En-tête pour la lecture d'images
+#include "gui_paint.h"       // En-tête des fonctions de dessin graphique  
+#include "gui_bmp.h"         // En-tête pour la gestion des images BMP  
 #include "gt911.h"           // En-tête des opérations de l'écran tactile (GT911)  
 #include "sd.h"              // En-tête des opérations sur carte SD  
 #include "config.h"  
@@ -30,7 +30,7 @@
 #include "freertos/task.h"  
 #include "freertos/queue.h"  
 
-#define MAX_IMAGE_FILES          256
+#define MAX_BMP_FILES            256  
 #define TOUCH_QUEUE_LENGTH       10  
 #define TOUCH_TASK_STACK         4096  
 #define TOUCH_TASK_PRIORITY      5  
@@ -51,8 +51,8 @@
 #define HOME_TOUCH_HEIGHT        ARROW_HEIGHT
 #define FILENAME_BAR_PAD         2
 
-static char *ImagePath[MAX_IMAGE_FILES];    // Tableau pour stocker les chemins des fichiers image
-static uint8_t image_num;         // Nombre de fichiers image trouvés
+static char *BmpPath[MAX_BMP_FILES];        // Tableau pour stocker les chemins des fichiers BMP  
+static uint8_t bmp_num;           // Nombre de fichiers BMP trouvés  
 static const char *TAG = "APP";  
 static UBYTE *BlackImage;         // Framebuffer global  
 static TaskHandle_t s_touch_task_handle;  // Tâche de traitement tactile  
@@ -80,76 +80,66 @@ typedef enum {
     NAV_HOME  
 } nav_action_t;  
 
-static void free_image_paths(void);
+static void free_bmp_paths(void);  
 
-static int image_path_cmp(const void *a, const void *b)
+static int bmp_path_cmp(const void *a, const void *b)  
 {  
     const char *const *pa = a;  
     const char *const *pb = b;  
     return strcasecmp(*pa, *pb);  
 }  
 
-// Fonction listant et triant tous les fichiers image d'un répertoire
-esp_err_t list_files_sorted(const char *base_path, const char *extensions[], size_t ext_count)
-{
-    free_image_paths();
-    DIR *dir = opendir(base_path);
-    if (dir == NULL) {
-        ESP_LOGE(TAG, "Impossible d'ouvrir le répertoire : %s", base_path);
-        image_num = 0;
-        return ESP_FAIL;
-    }
+// Fonction listant et triant tous les fichiers BMP d'un répertoire  
+esp_err_t list_files_sorted(const char *base_path)  
+{  
+    free_bmp_paths();  
+    DIR *dir = opendir(base_path);  
+    if (dir == NULL) {  
+        ESP_LOGE(TAG, "Impossible d'ouvrir le répertoire : %s", base_path);  
+        bmp_num = 0;  
+        return ESP_FAIL;  
+    }  
 
-    struct dirent *entry;
-    int i = 0;
-    while ((entry = readdir(dir)) != NULL) {
-        const char *file_name = entry->d_name;
-        size_t len = strlen(file_name);
-        bool matched = false;
-        for (size_t j = 0; j < ext_count; j++) {
-            const char *ext = extensions[j];
-            size_t ext_len = strlen(ext);
-            if (len > ext_len && strcasecmp(&file_name[len - ext_len], ext) == 0) {
-                matched = true;
-                break;
-            }
-        }
-        if (!matched) {
-            continue;
-        }
-        if (i >= MAX_IMAGE_FILES) {
-            ESP_LOGE(TAG, "Quota maximal de chemins d'image atteint (%d)", MAX_IMAGE_FILES);
-            closedir(dir);
-            image_num = i;
-            qsort(ImagePath, image_num, sizeof(char *), image_path_cmp);
-            return ESP_ERR_INVALID_SIZE;
-        }
-        size_t length = strlen(base_path) + strlen(file_name) + 2;
-        ImagePath[i] = malloc(length);
-        if (ImagePath[i] == NULL) {
-            ESP_LOGE(TAG, "Échec d'allocation mémoire pour le chemin d'image");
-            closedir(dir);
-            image_num = i;
-            qsort(ImagePath, image_num, sizeof(char *), image_path_cmp);
-            return ESP_ERR_NO_MEM;
-        }
-        snprintf(ImagePath[i], length, "%s/%s", base_path, file_name);
-        i++;
-    }
-    closedir(dir);
-    image_num = i;
-    qsort(ImagePath, image_num, sizeof(char *), image_path_cmp);
-    return ESP_OK;
-}
+    struct dirent *entry;  
+    int i = 0;  
+    while ((entry = readdir(dir)) != NULL) {  
+        const char *file_name = entry->d_name;  
+        size_t len = strlen(file_name);  
+        if (len > 4 && strcasecmp(&file_name[len - 4], ".bmp") == 0) {  
+            if (i >= MAX_BMP_FILES) {  
+                ESP_LOGE(TAG, "Quota maximal de chemins BMP atteint (%d)", MAX_BMP_FILES);  
+                closedir(dir);  
+                bmp_num = i;  
+                qsort(BmpPath, bmp_num, sizeof(char *), bmp_path_cmp);  
+                return ESP_ERR_INVALID_SIZE;  
+            }  
+            size_t length = strlen(base_path) + strlen(file_name) + 2;  
+            BmpPath[i] = malloc(length);  
+            if (BmpPath[i] == NULL) {  
+                ESP_LOGE(TAG, "Échec d'allocation mémoire pour le chemin BMP");  
+                closedir(dir);  
+                bmp_num = i;  
+                qsort(BmpPath, bmp_num, sizeof(char *), bmp_path_cmp);  
+                return ESP_ERR_NO_MEM;  
+            }  
+            snprintf(BmpPath[i], length, "%s/%s", base_path, file_name);  
+            i++;  
+        }  
+    }  
+    closedir(dir);  
+    bmp_num = i;  
+    qsort(BmpPath, bmp_num, sizeof(char *), bmp_path_cmp);  
+    return ESP_OK;  
+}  
 
-static void free_image_paths(void)
-{
-    for (int i = 0; i < image_num && i < MAX_IMAGE_FILES; i++) {
-        free(ImagePath[i]);
-        ImagePath[i] = NULL;
-    }
-    image_num = 0;
-}
+static void free_bmp_paths(void)  
+{  
+    for (int i = 0; i < bmp_num && i < MAX_BMP_FILES; i++) {  
+        free(BmpPath[i]);  
+        BmpPath[i] = NULL;  
+    }  
+    bmp_num = 0;  
+}  
 
 static void app_cleanup(void)  
 {  
@@ -170,7 +160,7 @@ static void app_cleanup(void)
     if (unmount_ret != ESP_OK) {  
         ESP_LOGW(TAG, "sd_mmc_unmount a échoué : %s", esp_err_to_name(unmount_ret));  
     }  
-    free_image_paths();
+    free_bmp_paths();  
     free(BlackImage);  
     BlackImage = NULL;  
 }  
@@ -359,7 +349,7 @@ static void draw_left_arrow(void)
     Paint_DrawRectangle(NAV_MARGIN, NAV_MARGIN,
                         NAV_MARGIN + ARROW_WIDTH, NAV_MARGIN + ARROW_HEIGHT,
                         WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    GUI_ReadImage(NAV_MARGIN, NAV_MARGIN, MOUNT_POINT "/pic/arrow_left.bmp");
+    GUI_ReadBmp(NAV_MARGIN, NAV_MARGIN, MOUNT_POINT "/pic/arrow_left.bmp");
 }
 
 static void draw_right_arrow(void)
@@ -368,7 +358,7 @@ static void draw_right_arrow(void)
     Paint_DrawRectangle(x, NAV_MARGIN,
                         x + ARROW_WIDTH, NAV_MARGIN + ARROW_HEIGHT,
                         WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    GUI_ReadImage(x, NAV_MARGIN, MOUNT_POINT "/pic/arrow_right.bmp");
+    GUI_ReadBmp(x, NAV_MARGIN, MOUNT_POINT "/pic/arrow_right.bmp");
 }
 
 static void draw_navigation_arrows(void)
@@ -449,12 +439,12 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
         ty >= NAV_MARGIN && ty < NAV_MARGIN + ARROW_HEIGHT) {
         (*idx)--;
         if (*idx < 0) {
-            *idx = image_num - 1;
+            *idx = bmp_num - 1;
         }
         Paint_Clear(WHITE);
-        GUI_ReadImage(0, 0, ImagePath[*idx]);
+        GUI_ReadBmp(0, 0, BmpPath[*idx]);
         draw_navigation_arrows();
-        draw_filename_bar(ImagePath[*idx]);
+        draw_filename_bar(BmpPath[*idx]);
         draw_left_arrow();
         wavesahre_rgb_lcd_display(BlackImage);
         nav_hl = NAV_HL_LEFT;
@@ -464,13 +454,13 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
                tx < g_display.width - NAV_MARGIN &&
                ty >= NAV_MARGIN && ty < NAV_MARGIN + ARROW_HEIGHT) {
         (*idx)++;
-        if (*idx > image_num - 1) {
+        if (*idx > bmp_num - 1) {
             *idx = 0;
         }
         Paint_Clear(WHITE);
-        GUI_ReadImage(0, 0, ImagePath[*idx]);
+        GUI_ReadBmp(0, 0, BmpPath[*idx]);
         draw_navigation_arrows();
-        draw_filename_bar(ImagePath[*idx]);
+        draw_filename_bar(BmpPath[*idx]);
         draw_right_arrow();
         wavesahre_rgb_lcd_display(BlackImage);
         nav_hl = NAV_HL_RIGHT;
@@ -530,17 +520,16 @@ void app_main(void)
                 break;  
             }  
             snprintf(base_path, sizeof(base_path), "%s/%s", MOUNT_POINT, selected_dir);  
-            const char *extensions[] = {".bmp", ".png", ".jpg"};
-            esp_err_t err = list_files_sorted(base_path, extensions, sizeof(extensions)/sizeof(extensions[0]));
-            if (err == ESP_ERR_INVALID_SIZE) {
-                ESP_LOGW(TAG, "Plus de %d fichiers image détectés, pagination requise", MAX_IMAGE_FILES);
+            esp_err_t err = list_files_sorted(base_path);  
+            if (err == ESP_ERR_INVALID_SIZE) {  
+                ESP_LOGW(TAG, "Plus de %d fichiers BMP détectés, pagination requise", MAX_BMP_FILES);  
             } else if (err != ESP_OK) {  
                 ESP_LOGE(TAG, "Erreur lors du listage : %s", esp_err_to_name(err));  
             }  
-            if (image_num == 0) {
+            if (bmp_num == 0) {  
                 UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;  
                 UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR) + 3 * TEXT_LINE_SPACING;  
-                Paint_DrawString_EN(nofile_x, nofile_y, "Aucun fichier image dans ce dossier.", &Font24, RED, WHITE);
+                Paint_DrawString_EN(nofile_x, nofile_y, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);  
                 wavesahre_rgb_lcd_display(BlackImage);  
                 app_cleanup();  
                 state = APP_STATE_ERROR;  
@@ -556,7 +545,7 @@ void app_main(void)
             if (act == NAV_EXIT) {  
                 state = APP_STATE_EXIT;  
             } else if (act == NAV_HOME) {  
-                free_image_paths();
+                free_bmp_paths();  
                 index = 0;  
                 prev_x = 0;  
                 prev_y = 0;  
