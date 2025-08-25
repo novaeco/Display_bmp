@@ -35,6 +35,16 @@ config DISPLAY_ORIENTATION_PORTRAIT
     bool "Portrait orientation"
 endchoice
 
+config MIN_BRIGHTNESS
+    int "Minimum backlight brightness (%)"
+    default 25
+    range 0 100
+
+config MAX_BRIGHTNESS
+    int "Maximum backlight brightness (%)"
+    default 100
+    range 0 100
+
 config WIFI_SSID
     string "WiFi SSID"
     default ""
