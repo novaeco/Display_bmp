@@ -122,8 +122,8 @@ When fetching images over HTTPS the server's root CA certificate must be provide
 * **Bluetooth Low Energy:** BLE 5 stack accessible through `esp_bt.h`; enable via `CONFIG_BT_BLE_ENABLED`.
 
 ### Field Bus Interfaces
-* **CAN (TWAI):** `GPIO20` (TX) and `GPIO19` (RX) routed to the IO‑Extension header for connection to an external CAN transceiver. Configure `CONFIG_TWAI` and use the provided `can.c` driver.
-* **RS485:** UART1 signals are exposed for half‑duplex RS485 with an external differential transceiver. Activate RS485 mode using `CONFIG_UART_RS485_MODE`.
+* **CAN (TWAI):** `GPIO20` (TX) and `GPIO19` (RX) are routed to the IO‑Extension header for connection to an external CAN transceiver. Place a **120 Ω termination resistor** across `CAN_H` and `CAN_L` at each end of the bus and provide the usual bias resistors if the transceiver does not integrate them. Enable via `CONFIG_TWAI`.
+* **RS485:** UART1 uses `GPIO15` (TXD) and `GPIO16` (RXD) for half‑duplex RS485. A **120 Ω differential terminator** and biasing resistors (typically 680 Ω–1 kΩ pull‑up/pull‑down on the A/B pair) are required on the bus. Activate RS485 mode with `CONFIG_UART_RS485_MODE`.
 
 ### Battery Management
 * On‑board single‑cell Li‑ion charger accepts 5 V from USB‑C or an external source and handles charge, protection and fuel gauging.

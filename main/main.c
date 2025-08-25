@@ -23,6 +23,8 @@
 #include "wifi.h"
 #include "image_fetcher.h"
 #include "pm.h"
+#include "can_display.h"
+#include "rs485_display.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,6 +91,15 @@ static bool init_peripherals(void)
     waveshare_rgb_lcd_bl_on();
     waveshare_rgb_lcd_set_brightness(100);
     battery_init();
+
+    if (can_display_init() != ESP_OK) {
+        ESP_LOGE(TAG, "Échec d'initialisation du module CAN");
+        return false;
+    }
+    if (rs485_display_init() != ESP_OK) {
+        ESP_LOGE(TAG, "Échec d'initialisation du module RS485");
+        return false;
+    }
 
     UDOUBLE Imagesize = g_display.width * g_display.height * 2;
     BlackImage = (UBYTE *)malloc(Imagesize);
