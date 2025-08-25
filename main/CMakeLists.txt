@@ -14,5 +14,6 @@ idf_component_register(
         esp_http_server
         can_display
         rs485_display
+    PRIV_REQUIRES esp_psram
     WHOLE_ARCHIVE
     )
