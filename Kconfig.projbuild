@@ -47,4 +47,8 @@ config IMAGE_FETCH_URL
     string "Image fetch URL"
     default "http://example.com/image.bmp"
 
+config WIFI_PROV_TIMEOUT_MS
+    int "WiFi provisioning timeout (ms)"
+    default 60000
+
 endmenu
