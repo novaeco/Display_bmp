@@ -1,3 +1,4 @@
+
 idf_component_register(
     SRCS "main.c" "file_manager.c" "touch_task.c" "http_server.c"
     INCLUDE_DIRS "."
