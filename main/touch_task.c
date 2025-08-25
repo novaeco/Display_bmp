@@ -1,5 +1,4 @@
 #include "touch_task.h"
-#include "gt911.h"
 #include "esp_log.h"
 #include "esp_err.h"
 #include "pm.h"
