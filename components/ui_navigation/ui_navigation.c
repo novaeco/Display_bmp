@@ -456,7 +456,7 @@ nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pr
         if (*idx < 0) {
             if (bmp_page_start > 0) {
                 size_t new_start = (bmp_page_start >= bmp_last_page_size) ? bmp_page_start - bmp_last_page_size : 0;
-                if (list_files_sorted(g_base_path, new_start) == ESP_OK && bmp_list.size > 0) {
+                if (list_files_sorted(g_base_path, new_start, BMP_LIST_INIT_CAP) == ESP_OK && bmp_list.size > 0) {
                     *idx = bmp_list.size - 1;
                 } else {
                     *idx = 0;
@@ -480,8 +480,7 @@ nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pr
         (*idx)++;
         if (*idx >= bmp_list.size) {
             if (bmp_has_more) {
-                size_t new_start = bmp_page_start + bmp_list.size;
-                if (list_files_sorted(g_base_path, new_start) == ESP_OK && bmp_list.size > 0) {
+                if (file_manager_next_page(BMP_LIST_INIT_CAP) == ESP_OK && bmp_list.size > 0) {
                     *idx = 0;
                 } else {
                     *idx = bmp_list.size ? bmp_list.size - 1 : 0;

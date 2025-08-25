@@ -227,7 +227,7 @@ void app_main(void)
                 image_fetch_http_to_sd(CONFIG_IMAGE_FETCH_URL, MOUNT_POINT "/remote.bmp");
                 snprintf(g_base_path, sizeof(g_base_path), "%s", MOUNT_POINT);
                 bmp_page_start = 0;
-                esp_err_t err = list_files_sorted(g_base_path, bmp_page_start);
+                esp_err_t err = list_files_sorted(g_base_path, bmp_page_start, BMP_LIST_INIT_CAP);
                 if (err != ESP_OK || bmp_list.size == 0) {
                     UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
                     UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR);
@@ -279,7 +279,7 @@ void app_main(void)
             }
             snprintf(g_base_path, sizeof(g_base_path), "%s/%s", MOUNT_POINT, selected_dir);
             bmp_page_start = 0;
-            esp_err_t err = list_files_sorted(g_base_path, bmp_page_start);
+            esp_err_t err = list_files_sorted(g_base_path, bmp_page_start, BMP_LIST_INIT_CAP);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "Erreur lors du listage : %s", esp_err_to_name(err));
             }
