@@ -20,6 +20,8 @@
 #include "file_manager.h"
 #include "ui_navigation.h"
 #include "touch_task.h"
+#include "wifi.h"
+#include "image_fetcher.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +48,8 @@ const display_geometry_t g_display = {
 };  
 
 typedef enum {
-    APP_STATE_FOLDER_SELECTION = 0,
+    APP_STATE_SOURCE_SELECTION = 0,
+    APP_STATE_FOLDER_SELECTION,
     APP_STATE_NAVIGATION,
     APP_STATE_ERROR,
     APP_STATE_EXIT
@@ -110,31 +113,56 @@ void app_main(void)
         return;  
     }  
 
-    esp_err_t sd_ret = sd_mmc_init();  
-    if (sd_ret != ESP_OK) {  
-        ESP_LOGE(TAG, "sd_mmc_init a échoué : %s", esp_err_to_name(sd_ret));  
-        UWORD err_x = g_display.width / TEXT_X_DIVISOR;  
-        UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;  
-        Paint_DrawString_EN(err_x, err_y, "Échec carte SD !", &Font24, BLACK, WHITE);  
-        wavesahre_rgb_lcd_display(BlackImage);  
-        app_cleanup();  
-        return;  
-    }  
+    esp_err_t sd_ret = sd_mmc_init();
+    if (sd_ret != ESP_OK) {
+        ESP_LOGE(TAG, "sd_mmc_init a échoué : %s", esp_err_to_name(sd_ret));
+        UWORD err_x = g_display.width / TEXT_X_DIVISOR;
+        UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
+        Paint_DrawString_EN(err_x, err_y, "Échec carte SD !", &Font24, BLACK, WHITE);
+        wavesahre_rgb_lcd_display(BlackImage);
+        app_cleanup();
+        return;
+    }
 
-    app_state_t state = APP_STATE_FOLDER_SELECTION;  
-    const char *selected_dir = NULL;  
+    app_state_t state = APP_STATE_SOURCE_SELECTION;
+    const char *selected_dir = NULL;
+    image_source_t img_src = IMAGE_SOURCE_LOCAL;
     int8_t index = 0;
     uint16_t prev_x = 0;
     uint16_t prev_y = 0;
 
     while (state != APP_STATE_EXIT) {  
         switch (state) {  
-        case APP_STATE_FOLDER_SELECTION:  
-            selected_dir = draw_folder_selection();  
-            if (selected_dir == NULL) {  
-                state = APP_STATE_EXIT;  
-                break;  
-            }  
+        case APP_STATE_SOURCE_SELECTION:
+            img_src = draw_source_selection();
+            if (img_src == IMAGE_SOURCE_REMOTE) {
+                wifi_init_sta();
+                image_fetch_http_to_sd(CONFIG_IMAGE_FETCH_URL, MOUNT_POINT "/remote.bmp");
+                snprintf(g_base_path, sizeof(g_base_path), "%s", MOUNT_POINT);
+                bmp_page_start = 0;
+                esp_err_t err = list_files_sorted(g_base_path, bmp_page_start);
+                if (err != ESP_OK || bmp_list.size == 0) {
+                    UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
+                    UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR);
+                    Paint_DrawString_EN(nofile_x, nofile_y, "Aucune image distante.", &Font24, RED, WHITE);
+                    wavesahre_rgb_lcd_display(BlackImage);
+                    state = APP_STATE_ERROR;
+                } else {
+                    draw_navigation_arrows();
+                    wavesahre_rgb_lcd_display(BlackImage);
+                    state = APP_STATE_NAVIGATION;
+                }
+            } else {
+                state = APP_STATE_FOLDER_SELECTION;
+            }
+            break;
+
+        case APP_STATE_FOLDER_SELECTION:
+            selected_dir = draw_folder_selection();
+            if (selected_dir == NULL) {
+                state = APP_STATE_EXIT;
+                break;
+            }
             snprintf(g_base_path, sizeof(g_base_path), "%s/%s", MOUNT_POINT, selected_dir);
             bmp_page_start = 0;
             esp_err_t err = list_files_sorted(g_base_path, bmp_page_start);
@@ -161,16 +189,16 @@ void app_main(void)
                 state = APP_STATE_EXIT;  
             } else if (act == NAV_HOME) {  
                 bmp_list_free();
-                index = 0;  
-                prev_x = 0;  
-                prev_y = 0;  
-                selected_dir = NULL;  
-                Paint_Clear(WHITE);  
-                wavesahre_rgb_lcd_display(BlackImage);  
-                state = APP_STATE_FOLDER_SELECTION;  
-            }  
-            break;  
-        }  
+                index = 0;
+                prev_x = 0;
+                prev_y = 0;
+                selected_dir = NULL;
+                Paint_Clear(WHITE);
+                wavesahre_rgb_lcd_display(BlackImage);
+                state = APP_STATE_SOURCE_SELECTION;
+            }
+            break;
+        }
 
         case APP_STATE_ERROR:  
             vTaskDelay(portMAX_DELAY);  

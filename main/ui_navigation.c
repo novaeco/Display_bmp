@@ -35,6 +35,87 @@ static void draw_folder_button(UWORD x0, UWORD y0, UWORD x1, UWORD y1,
                        label, &Font24, BLACK, bg_color);
 }
 
+image_source_t draw_source_selection(void)
+{
+    touch_gt911_point_t point_data;
+
+    UWORD text_x = g_display.width / TEXT_X_DIVISOR;
+    UWORD text_y1 = g_display.height / TEXT_Y1_DIVISOR;
+    UWORD text_y2 = text_y1 + TEXT_LINE_SPACING;
+
+    Paint_DrawString_EN(text_x, text_y1, "Source d'image :", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(text_x, text_y2, "Choisissez :", &Font24, BLACK, WHITE);
+
+    UWORD btnL_x0 = g_display.margin_left;
+    UWORD btnL_y0 = (g_display.height - BTN_HEIGHT) / 2;
+    UWORD btnL_x1 = btnL_x0 + BTN_WIDTH;
+    UWORD btnL_y1 = btnL_y0 + BTN_HEIGHT;
+
+    UWORD btnR_x1 = g_display.width - g_display.margin_right;
+    UWORD btnR_x0 = btnR_x1 - BTN_WIDTH;
+    UWORD btnR_y0 = btnL_y0;
+    UWORD btnR_y1 = btnL_y1;
+
+    draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                       "Locales", BTN_LABEL_L_OFFSET_X, WHITE);
+    draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                       "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
+
+    wavesahre_rgb_lcd_display(BlackImage);
+
+    enum { HIGHLIGHT_NONE, HIGHLIGHT_LEFT, HIGHLIGHT_RIGHT } highlight = HIGHLIGHT_NONE;
+    while (1) {
+        if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) == pdTRUE) {
+            if (point_data.cnt == 1) {
+                uint16_t tx = point_data.x[0];
+                uint16_t ty = point_data.y[0];
+                orient_coords(&tx, &ty);
+                if (tx >= btnL_x0 && tx <= btnL_x1 && ty >= btnL_y0 && ty <= btnL_y1) {
+                    if (highlight != HIGHLIGHT_LEFT) {
+                        if (highlight == HIGHLIGHT_RIGHT) {
+                            draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                                               "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
+                        }
+                        draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                                           "Locales", BTN_LABEL_L_OFFSET_X, GRAY);
+                        wavesahre_rgb_lcd_display(BlackImage);
+                        highlight = HIGHLIGHT_LEFT;
+                    }
+                } else if (tx >= btnR_x0 && tx <= btnR_x1 && ty >= btnR_y0 && ty <= btnR_y1) {
+                    if (highlight != HIGHLIGHT_RIGHT) {
+                        if (highlight == HIGHLIGHT_LEFT) {
+                            draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                                               "Locales", BTN_LABEL_L_OFFSET_X, WHITE);
+                        }
+                        draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                                           "Distantes", BTN_LABEL_R_OFFSET_X, GRAY);
+                        wavesahre_rgb_lcd_display(BlackImage);
+                        highlight = HIGHLIGHT_RIGHT;
+                    }
+                } else if (highlight != HIGHLIGHT_NONE) {
+                    if (highlight == HIGHLIGHT_LEFT) {
+                        draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                                           "Locales", BTN_LABEL_L_OFFSET_X, WHITE);
+                    } else {
+                        draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                                           "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
+                    }
+                    wavesahre_rgb_lcd_display(BlackImage);
+                    highlight = HIGHLIGHT_NONE;
+                }
+            } else if (point_data.cnt == 0 && highlight != HIGHLIGHT_NONE) {
+                image_source_t src = (highlight == HIGHLIGHT_LEFT) ? IMAGE_SOURCE_LOCAL : IMAGE_SOURCE_REMOTE;
+                draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                                   "Locales", BTN_LABEL_L_OFFSET_X, WHITE);
+                draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                                   "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
+                wavesahre_rgb_lcd_display(BlackImage);
+                return src;
+            }
+        }
+    }
+}
+
 const char *draw_folder_selection(void)
 {
     touch_gt911_point_t point_data;

@@ -39,3 +39,15 @@ menu "SD card options"
             bool "4-bit mode"
     endchoice
 endmenu
+
+menu "Network options"
+    config WIFI_SSID
+        string "WiFi SSID"
+        default "MySSID"
+    config WIFI_PASSWORD
+        string "WiFi password"
+        default "MyPassword"
+    config IMAGE_FETCH_URL
+        string "Remote BMP URL"
+        default "http://example.com/image.bmp"
+endmenu
