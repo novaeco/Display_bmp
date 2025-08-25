@@ -6,6 +6,15 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "nvs_flash.h"
+#include "wifi_provisioning/manager.h"
+#ifdef CONFIG_WIFI_PROV_TRANSPORT_BLE
+#include "wifi_provisioning/scheme_ble.h"
+#else
+#include "wifi_provisioning/scheme_softap.h"
+#endif
+#include "esp_system.h"
+#include <stdio.h>
 
 static const char *TAG = "wifi";
 
@@ -29,9 +38,23 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
 
 static bool s_wifi_initialized = false;
 
+static void get_service_name(char *name, size_t max_len)
+{
+    uint8_t eth_mac[6];
+    esp_read_mac(eth_mac, ESP_MAC_WIFI_STA);
+    snprintf(name, max_len, "PROV_%02X%02X%02X", eth_mac[3], eth_mac[4], eth_mac[5]);
+}
+
 esp_err_t wifi_init_sta(uint32_t timeout_ms)
 {
     if (!s_wifi_initialized) {
+        esp_err_t ret = nvs_flash_init();
+        if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+            ESP_ERROR_CHECK(nvs_flash_erase());
+            ret = nvs_flash_init();
+        }
+        ESP_ERROR_CHECK(ret);
+
         ESP_ERROR_CHECK(esp_netif_init());
         ESP_ERROR_CHECK(esp_event_loop_create_default());
         esp_netif_create_default_wifi_sta();
@@ -41,6 +64,35 @@ esp_err_t wifi_init_sta(uint32_t timeout_ms)
 
         s_wifi_initialized = true;
     }
+
+    wifi_prov_mgr_config_t prov_cfg = {
+#ifdef CONFIG_WIFI_PROV_TRANSPORT_BLE
+        .scheme = wifi_prov_scheme_ble,
+        .scheme_event_handler = WIFI_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BTDM,
+#else
+        .scheme = wifi_prov_scheme_softap,
+        .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE,
+#endif
+    };
+    ESP_ERROR_CHECK(wifi_prov_mgr_init(prov_cfg));
+
+    bool provisioned = false;
+    wifi_prov_mgr_is_provisioned(&provisioned);
+    if (!provisioned) {
+        char service_name[12];
+        get_service_name(service_name, sizeof(service_name));
+        ESP_LOGI(TAG, "Starting provisioning service: %s", service_name);
+        ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(WIFI_PROV_SECURITY_0,
+                                                        NULL, service_name, NULL));
+        while (!provisioned) {
+            vTaskDelay(pdMS_TO_TICKS(500));
+            wifi_prov_mgr_is_provisioned(&provisioned);
+        }
+        ESP_LOGI(TAG, "Provisioning successful");
+        wifi_prov_mgr_stop_provisioning();
+    }
+
+    wifi_prov_mgr_deinit();
 
     s_wifi_event_group = xEventGroupCreate();
     if (s_wifi_event_group == NULL) {
@@ -55,16 +107,7 @@ esp_err_t wifi_init_sta(uint32_t timeout_ms)
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
         IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, &instance_got_ip));
 
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = CONFIG_WIFI_SSID,
-            .password = CONFIG_WIFI_PASSWORD,
-        },
-    };
-
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-
     esp_err_t ret = esp_wifi_start();
     if (ret != ESP_OK && ret != ESP_ERR_WIFI_CONN) {
         return ret;
