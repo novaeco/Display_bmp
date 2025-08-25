@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
+#include <strings.h>
 #include <errno.h>
 #include <ctype.h>
 
@@ -75,6 +76,12 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     sanitize_filename(clean_name, filename, sizeof(clean_name));
     if (strlen(clean_name) == 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid filename");
+        return ESP_FAIL;
+    }
+
+    size_t n = strlen(clean_name);
+    if (n < 4 || strcasecmp(&clean_name[n-4], ".bmp") != 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Only .bmp allowed");
         return ESP_FAIL;
     }
 
