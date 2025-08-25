@@ -155,12 +155,15 @@ menu "SD card options"
 endmenu
 
 menu "Network options"
-    config WIFI_SSID
-        string "WiFi SSID"
-        default "MySSID"
-    config WIFI_PASSWORD
-        string "WiFi password"
-        default "MyPassword"
+    choice WIFI_PROV_TRANSPORT
+        prompt "WiFi provisioning transport"
+        default WIFI_PROV_TRANSPORT_SOFTAP
+        config WIFI_PROV_TRANSPORT_BLE
+            bool "BLE"
+        config WIFI_PROV_TRANSPORT_SOFTAP
+            bool "SoftAP"
+    endchoice
+
     config IMAGE_FETCH_URL
         string "Remote BMP URL"
         default "http://example.com/image.bmp"
