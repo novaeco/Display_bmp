@@ -159,6 +159,8 @@
 #endif
 
 #include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
 
 typedef struct {
     uint16_t width;
@@ -169,12 +171,13 @@ typedef struct {
     uint16_t margin_bottom;
 } display_geometry_t;
 
-#if CONFIG_DISPLAY_ORIENTATION_PORTRAIT
-#define LCD_H_RES LCD_HEIGHT
-#define LCD_V_RES LCD_WIDTH
-#define DISPLAY_IS_PORTRAIT 1
-#else
+extern bool g_is_portrait;
+extern display_geometry_t g_display;
+
+void display_update_geometry(void);
+void display_set_orientation(bool portrait);
+esp_err_t display_load_orientation(void);
+esp_err_t display_save_orientation(void);
+
 #define LCD_H_RES LCD_WIDTH
 #define LCD_V_RES LCD_HEIGHT
-#define DISPLAY_IS_PORTRAIT 0
-#endif

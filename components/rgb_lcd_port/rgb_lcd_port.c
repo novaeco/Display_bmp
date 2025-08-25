@@ -15,6 +15,7 @@
 #include "freertos/semphr.h"
 #include "driver/ledc.h"
 #include "io_extension.h"
+#include "config.h"
 #include <string.h>
 
 
@@ -142,11 +143,10 @@ void waveshare_rgb_lcd_display_window(int16_t Xstart, int16_t Ystart, int16_t Xe
 {
     // Ensure Xstart is within valid range, clip Xend to the screen width if necessary
     if (Xstart < 0) Xstart = 0;
-    else if (Xend > LCD_H_RES) Xend = LCD_H_RES;
+    else if (Xend > g_display.width) Xend = g_display.width;
 
-    // Ensure Ystart is within valid range, clip Yend to the screen height if necessary
     if (Ystart < 0) Ystart = 0;
-    else if (Yend > LCD_V_RES) Yend = LCD_V_RES;
+    else if (Yend > g_display.height) Yend = g_display.height;
 
     // Calculate the width and height of the cropped region
     int crop_width = Xend - Xstart;

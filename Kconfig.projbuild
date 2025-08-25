@@ -24,9 +24,16 @@ config DISPLAY_MARGIN_BOTTOM
     int "Bottom margin"
     default 0
 
+choice DISPLAY_ORIENTATION
+    prompt "Display orientation"
+    default DISPLAY_ORIENTATION_LANDSCAPE
+
 config DISPLAY_ORIENTATION_LANDSCAPE
     bool "Landscape orientation"
-    default y
+
+config DISPLAY_ORIENTATION_PORTRAIT
+    bool "Portrait orientation"
+endchoice
 
 config WIFI_SSID
     string "WiFi SSID"

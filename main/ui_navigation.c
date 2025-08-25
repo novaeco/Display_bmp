@@ -22,11 +22,11 @@ static const char *TAG_NAV = "NAV";
 
 static inline void orient_coords(uint16_t *x, uint16_t *y)
 {
-#if CONFIG_DISPLAY_ORIENTATION_PORTRAIT
-    uint16_t tx = *x;
-    *x = *y;
-    *y = g_display.width - tx;
-#endif
+    if (g_is_portrait) {
+        uint16_t tx = *x;
+        *x = *y;
+        *y = g_display.width - tx;
+    }
 }
 
 static void draw_folder_button(UWORD x0, UWORD y0, UWORD x1, UWORD y1,
@@ -118,6 +118,58 @@ image_source_t draw_source_selection(void)
                 waveshare_rgb_lcd_display(BlackImage);
                 return src;
             }
+        }
+    }
+}
+
+void draw_orientation_menu(void)
+{
+    touch_gt911_point_t point_data;
+
+    UWORD text_x = g_display.width / TEXT_X_DIVISOR;
+    UWORD text_y1 = g_display.height / TEXT_Y1_DIVISOR;
+    UWORD text_y2 = text_y1 + TEXT_LINE_SPACING;
+
+    Paint_DrawString_EN(text_x, text_y1, "Orientation :", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(text_x, text_y2, "Choisissez :", &Font24, BLACK, WHITE);
+
+    UWORD btnL_x0 = g_display.margin_left;
+    UWORD btnL_y0 = (g_display.height - BTN_HEIGHT) / 2;
+    UWORD btnL_x1 = btnL_x0 + BTN_WIDTH;
+    UWORD btnL_y1 = btnL_y0 + BTN_HEIGHT;
+
+    UWORD btnR_x1 = g_display.width - g_display.margin_right;
+    UWORD btnR_x0 = btnR_x1 - BTN_WIDTH;
+    UWORD btnR_y0 = btnL_y0;
+    UWORD btnR_y1 = btnL_y1;
+
+    draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                       "Paysage", BTN_LABEL_L_OFFSET_X, WHITE);
+    draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                       "Portrait", BTN_LABEL_R_OFFSET_X, WHITE);
+
+    waveshare_rgb_lcd_display(BlackImage);
+
+    while (1) {
+        if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) == pdTRUE) {
+            if (point_data.cnt == 0) {
+                continue;
+            }
+            uint16_t tx = point_data.x[0];
+            uint16_t ty = point_data.y[0];
+            orient_coords(&tx, &ty);
+            if (tx >= btnL_x0 && tx <= btnL_x1 && ty >= btnL_y0 && ty <= btnL_y1) {
+                display_set_orientation(false);
+            } else if (tx >= btnR_x0 && tx <= btnR_x1 && ty >= btnR_y0 && ty <= btnR_y1) {
+                display_set_orientation(true);
+            } else {
+                continue;
+            }
+            Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
+            Paint_Clear(WHITE);
+            waveshare_rgb_lcd_display(BlackImage);
+            display_save_orientation();
+            return;
         }
     }
 }
