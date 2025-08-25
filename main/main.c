@@ -12,8 +12,8 @@
  ******************************************************************************/  
 
 #include "rgb_lcd_port.h"    // En-tête du pilote LCD RGB Waveshare  
-#include "gui_paint.h"       // En-tête des fonctions de dessin graphique  
-#include "gui_bmp.h"         // En-tête pour la gestion des images BMP  
+#include "gui_paint.h"       // En-tête des fonctions de dessin graphique
+#include "gui_image.h"       // En-tête pour la lecture d'images
 #include "gt911.h"           // En-tête des opérations de l'écran tactile (GT911)  
 #include "sd.h"              // En-tête des opérations sur carte SD  
 #include "config.h"  
@@ -349,7 +349,7 @@ static void draw_left_arrow(void)
     Paint_DrawRectangle(NAV_MARGIN, NAV_MARGIN,
                         NAV_MARGIN + ARROW_WIDTH, NAV_MARGIN + ARROW_HEIGHT,
                         WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    GUI_ReadBmp(NAV_MARGIN, NAV_MARGIN, MOUNT_POINT "/pic/arrow_left.bmp");
+    GUI_ReadImage(NAV_MARGIN, NAV_MARGIN, MOUNT_POINT "/pic/arrow_left.bmp");
 }
 
 static void draw_right_arrow(void)
@@ -358,7 +358,7 @@ static void draw_right_arrow(void)
     Paint_DrawRectangle(x, NAV_MARGIN,
                         x + ARROW_WIDTH, NAV_MARGIN + ARROW_HEIGHT,
                         WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    GUI_ReadBmp(x, NAV_MARGIN, MOUNT_POINT "/pic/arrow_right.bmp");
+    GUI_ReadImage(x, NAV_MARGIN, MOUNT_POINT "/pic/arrow_right.bmp");
 }
 
 static void draw_navigation_arrows(void)
@@ -442,7 +442,7 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
             *idx = bmp_num - 1;
         }
         Paint_Clear(WHITE);
-        GUI_ReadBmp(0, 0, BmpPath[*idx]);
+        GUI_ReadImage(0, 0, BmpPath[*idx]);
         draw_navigation_arrows();
         draw_filename_bar(BmpPath[*idx]);
         draw_left_arrow();
@@ -458,7 +458,7 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
             *idx = 0;
         }
         Paint_Clear(WHITE);
-        GUI_ReadBmp(0, 0, BmpPath[*idx]);
+        GUI_ReadImage(0, 0, BmpPath[*idx]);
         draw_navigation_arrows();
         draw_filename_bar(BmpPath[*idx]);
         draw_right_arrow();
