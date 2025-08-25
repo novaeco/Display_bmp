@@ -1,11 +1,6 @@
-# Ignore build output and SDK configuration
 build/
 sdkconfig
 sdkconfig.old
-# Compiled objects and binaries
-*.o
 *.bin
 *.elf
-# ESP-IDF generated directories
-managed_components/
-dist/
+*.o
