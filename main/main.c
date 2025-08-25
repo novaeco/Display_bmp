@@ -317,6 +317,15 @@ void app_main(void)
                 waveshare_rgb_lcd_display(BlackImage);
                 lv_obj_clean(lv_scr_act());
                 draw_navigation_arrows();
+            } else if (act == NAV_ROTATE) {
+                display_set_orientation(!g_is_portrait);
+                Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
+                Paint_Clear(WHITE);
+                GUI_ReadBmp(0, 0, bmp_list.items[index]);
+                waveshare_rgb_lcd_display(BlackImage);
+                lv_obj_clean(lv_scr_act());
+                draw_navigation_arrows();
+                display_save_orientation();
             }
             break;
         }

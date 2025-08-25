@@ -593,12 +593,22 @@ void draw_navigation_arrows(void)
     lv_obj_add_event_cb(btn_right, nav_btn_cb, LV_EVENT_CLICKED, (void*)(intptr_t)1);
     lv_obj_t *lbl_right = lv_label_create(btn_right);
     lv_label_set_text(lbl_right, ">");
+
+    lv_obj_t *btn_rotate = lv_btn_create(scr);
+    lv_obj_set_size(btn_rotate, 100, 40);
+    lv_obj_set_pos(btn_rotate, (g_display.width - 100)/2, g_display.margin_top);
+    lv_obj_add_event_cb(btn_rotate, nav_btn_cb, LV_EVENT_CLICKED, (void*)(intptr_t)2);
+    lv_obj_t *lbl_rotate = lv_label_create(btn_rotate);
+    lv_label_set_text(lbl_rotate, "Rotation");
 }
 
 nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
 {
     int8_t dir;
     if (s_nav_queue && xQueueReceive(s_nav_queue, &dir, pdMS_TO_TICKS(50)) == pdTRUE) {
+        if (dir == 2) {
+            return NAV_ROTATE;
+        }
         *idx += dir;
         return NAV_SCROLL;
     }
