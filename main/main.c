@@ -147,7 +147,7 @@ void app_main(void)
         return;
     }
 
-    esp_pm_config_esp32s3_t pm_cfg = {
+    esp_pm_config_t pm_cfg = {
         .max_freq_mhz = CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ,
         .min_freq_mhz = 40,
         .light_sleep_enable = true,
