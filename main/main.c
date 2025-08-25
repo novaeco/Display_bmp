@@ -34,6 +34,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "nvs_flash.h"
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
@@ -102,9 +103,9 @@ static bool init_peripherals(void)
     }
 
     UDOUBLE Imagesize = LCD_H_RES * LCD_V_RES * 2;
-    BlackImage = (UBYTE *)malloc(Imagesize);
+    BlackImage = (UBYTE *)heap_caps_malloc(Imagesize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (BlackImage == NULL) {
-        ESP_LOGE(TAG, "Échec d’allocation mémoire pour le framebuffer...");
+        ESP_LOGE(TAG, "Échec d’allocation mémoire pour le framebuffer : %s", esp_err_to_name(ESP_ERR_NO_MEM));
         return false;
     }
 
