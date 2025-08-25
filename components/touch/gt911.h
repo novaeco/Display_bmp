@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#pragma once
+
 /**
  * @file
  * @brief ESP LCD touch: GT911
