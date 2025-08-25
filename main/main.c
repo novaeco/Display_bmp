@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
@@ -143,10 +144,17 @@ void pm_update_activity(void)
 
 static void process_background_tasks(void)
 {
+    static int s_prev_level = -1;
     uint8_t batt = battery_get_percentage();
+    float normalized = batt / 100.0f;
+    float corrected = powf(normalized, BRIGHTNESS_GAMMA);
     uint8_t level = CONFIG_MIN_BRIGHTNESS +
-                    (CONFIG_MAX_BRIGHTNESS - CONFIG_MIN_BRIGHTNESS) * batt / 100;
-    waveshare_rgb_lcd_set_brightness(level);
+                    (uint8_t)((CONFIG_MAX_BRIGHTNESS - CONFIG_MIN_BRIGHTNESS) * corrected);
+
+    if (s_prev_level < 0 || abs((int)level - s_prev_level) >= CONFIG_BRIGHTNESS_HYSTERESIS) {
+        waveshare_rgb_lcd_set_brightness(level);
+        s_prev_level = level;
+    }
 
     TickType_t now = xTaskGetTickCount();
     if (pdTICKS_TO_MS(now - s_last_activity_ticks) > INACTIVITY_TIMEOUT_MS) {
@@ -334,11 +342,12 @@ void app_main(void)
             vTaskDelay(portMAX_DELAY);  
             break;  
 
-        case APP_STATE_EXIT:  
-            break;  
-        }  
-        process_background_tasks();  
-    }  
-    app_cleanup();  
-    vTaskDelete(NULL);  
-}  
+        case APP_STATE_EXIT:
+            break;
+        }
+        process_background_tasks();
+        vTaskDelay(pdMS_TO_TICKS(CONFIG_BG_TASK_DELAY_MS));
+    }
+    app_cleanup();
+    vTaskDelete(NULL);
+}

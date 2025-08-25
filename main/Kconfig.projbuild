@@ -10,6 +10,20 @@ config MAX_BRIGHTNESS
     default 100
     range 0 100
 
+config BRIGHTNESS_HYSTERESIS
+    int "Brightness change threshold (%)"
+    default 5
+    range 0 100
+
+config BRIGHTNESS_GAMMA_X100
+    int "Gamma correction factor (x100)"
+    default 220
+    range 1 1000
+
+config BG_TASK_DELAY_MS
+    int "Background task delay (ms)"
+    default 1000
+
 config WIFI_SSID
     string "WiFi SSID"
     default ""
