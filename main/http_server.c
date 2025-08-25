@@ -2,10 +2,12 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "sd.h"
+#include "sdkconfig.h"
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 
 static const char *TAG = "http_srv";
 static httpd_handle_t s_server = NULL;
@@ -13,9 +15,28 @@ static httpd_handle_t s_server = NULL;
 static const char upload_html[] =
 "<!DOCTYPE html><html><body><h2>Upload BMP</h2>"
 "<input id=\"file\" type=\"file\" accept=\".bmp\"><button onclick=\"u()\">Upload</button>"
-"<script>function u(){var f=document.getElementById('file').files[0];"
+"<script>function u(){var f=document.getElementById('file').files[0];" 
 "if(!f){alert('No file');return;}var x=new XMLHttpRequest();"
 "x.open('POST','/upload/'+f.name,true);x.send(f);}</script></body></html>";
+
+static void sanitize_filename(char *out, const char *in, size_t len)
+{
+    size_t j = 0;
+    for (size_t i = 0; in[i] && j < len - 1; ++i) {
+        char c = in[i];
+        if (c == '/' || c == '\\') {
+            continue;
+        }
+        if (c == '.' && in[i + 1] == '.') {
+            ++i;
+            continue;
+        }
+        if (isalnum((unsigned char)c) || c == '_' || c == '-' || c == '.') {
+            out[j++] = c;
+        }
+    }
+    out[j] = '\0';
+}
 
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
@@ -32,6 +53,31 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
+    if (strlen(CONFIG_UPLOAD_AUTH_TOKEN)) {
+        size_t auth_len = httpd_req_get_hdr_value_len(req, "Authorization");
+        char auth[64];
+        if (auth_len == 0 || auth_len >= sizeof(auth) ||
+            httpd_req_get_hdr_value_str(req, "Authorization", auth, sizeof(auth)) != ESP_OK ||
+            strcmp(auth, CONFIG_UPLOAD_AUTH_TOKEN) != 0) {
+            httpd_resp_set_status(req, "401 Unauthorized");
+            httpd_resp_send(req, "Unauthorized", HTTPD_RESP_USE_STRLEN);
+            return ESP_FAIL;
+        }
+    }
+
+    if (req->content_len > CONFIG_UPLOAD_MAX_BYTES) {
+        httpd_resp_set_status(req, "413 Payload Too Large");
+        httpd_resp_send(req, "Payload too large", HTTPD_RESP_USE_STRLEN);
+        return ESP_FAIL;
+    }
+
+    char clean_name[64];
+    sanitize_filename(clean_name, filename, sizeof(clean_name));
+    if (strlen(clean_name) == 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid filename");
+        return ESP_FAIL;
+    }
+
     struct stat st;
     if (stat(MOUNT_POINT "/upload", &st) != 0) {
         if (mkdir(MOUNT_POINT "/upload", 0775) != 0 && errno != EEXIST) {
@@ -41,7 +87,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         }
     }
 
-    snprintf(filepath, sizeof(filepath), "%s/upload/%s", MOUNT_POINT, filename);
+    snprintf(filepath, sizeof(filepath), "%s/upload/%s", MOUNT_POINT, clean_name);
     FILE *f = fopen(filepath, "w");
     if (!f) {
         ESP_LOGE(TAG, "fopen failed: %s", filepath);
