@@ -27,6 +27,12 @@ menu "Display options"
     endchoice
 endmenu
 
+menu "Power management options"
+    config INACTIVITY_TIMEOUT_MS
+        int "Inactivity timeout before light sleep (ms)"
+        default 60000
+endmenu
+
 menu "LCD panel options"
     config LCD_PIXEL_CLOCK_HZ
         int "Pixel clock frequency (Hz)"

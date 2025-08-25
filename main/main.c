@@ -22,6 +22,7 @@
 #include "touch_task.h"
 #include "wifi.h"
 #include "image_fetcher.h"
+#include "pm.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +32,8 @@
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_pm.h"
+#include "esp_sleep.h"
 
 #define BASE_PATH_LEN            128
 #define PAINT_SCALE              65
@@ -102,18 +105,50 @@ static bool init_peripherals(void)
 }
 
 
-static void process_background_tasks(void)  
-{  
-    // Espace réservé pour d'autres traitements périodiques : watchdog, animations, etc.  
-}  
+static TickType_t s_last_activity_ticks;
+
+void pm_update_activity(void)
+{
+    s_last_activity_ticks = xTaskGetTickCount();
+}
+
+static void process_background_tasks(void)
+{
+    uint8_t batt = battery_get_percentage();
+    uint8_t level;
+    if (batt > 75) {
+        level = 100;
+    } else if (batt > 50) {
+        level = 75;
+    } else if (batt > 25) {
+        level = 50;
+    } else {
+        level = 25;
+    }
+    waveshare_rgb_lcd_set_brightness(level);
+
+    TickType_t now = xTaskGetTickCount();
+    if (pdTICKS_TO_MS(now - s_last_activity_ticks) > INACTIVITY_TIMEOUT_MS) {
+        esp_light_sleep_start();
+        pm_update_activity();
+    }
+}
 
 // Fonction principale de l'application  
-void app_main(void)  
-{  
-    if (!init_peripherals()) {  
-        app_cleanup();  
-        return;  
-    }  
+void app_main(void)
+{
+    if (!init_peripherals()) {
+        app_cleanup();
+        return;
+    }
+
+    esp_pm_config_esp32s3_t pm_cfg = {
+        .max_freq_mhz = CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ,
+        .min_freq_mhz = 40,
+        .light_sleep_enable = true,
+    };
+    ESP_ERROR_CHECK(esp_pm_configure(&pm_cfg));
+    pm_update_activity();
 
     esp_err_t sd_ret = sd_mmc_init();
     if (sd_ret != ESP_OK) {

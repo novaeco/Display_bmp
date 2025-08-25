@@ -2,6 +2,7 @@
 #include "gt911.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "pm.h"
 
 #define TOUCH_QUEUE_LENGTH       10
 #define TOUCH_TASK_STACK         4096
@@ -26,6 +27,9 @@ static void touch_task(void *arg)
     while (1) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         data = touch_gt911_read_point(5);
+        if (data.cnt > 0) {
+            pm_update_activity();
+        }
         xQueueSend(s_touch_queue, &data, portMAX_DELAY);
     }
 }
