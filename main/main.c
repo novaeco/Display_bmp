@@ -28,13 +28,13 @@
 #include "esp_err.h"
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"  
-#include "freertos/queue.h"  
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "esp_heap_caps.h"
 
-#define MAX_BMP_FILES            256  
-#define TOUCH_QUEUE_LENGTH       10  
-#define TOUCH_TASK_STACK         4096  
-#define TOUCH_TASK_PRIORITY      5  
+#define TOUCH_QUEUE_LENGTH       10
+#define TOUCH_TASK_STACK         4096
+#define TOUCH_TASK_PRIORITY      5
 #define TEXT_X_DIVISOR           5  
 #define TEXT_Y1_DIVISOR          3  
 #define TEXT_LINE_SPACING        40  
@@ -52,9 +52,20 @@
 #define HOME_TOUCH_HEIGHT        ARROW_HEIGHT
 #define FILENAME_BAR_PAD         2
 
-static char *BmpPath[MAX_BMP_FILES];        // Tableau pour stocker les chemins des fichiers BMP  
-static uint8_t bmp_num;           // Nombre de fichiers BMP trouvés  
-static const char *TAG = "APP";  
+#define BMP_LIST_INIT_CAP        16
+
+typedef struct {
+    char **items;
+    size_t size;
+    size_t capacity;
+} bmp_list_t;
+
+static bmp_list_t bmp_list = {0};           // Liste dynamique des chemins BMP
+static size_t bmp_page_start = 0;           // Index du premier fichier de la page courante
+static bool bmp_has_more = false;           // Indique s'il reste des fichiers non chargés
+static size_t bmp_last_page_size = 0;       // Nombre d'éléments dans la page courante
+static char g_base_path[BASE_PATH_LEN];     // Chemin du dossier actuellement affiché
+static const char *TAG = "APP";
 static UBYTE *BlackImage;         // Framebuffer global  
 static TaskHandle_t s_touch_task_handle;  // Tâche de traitement tactile  
 static QueueHandle_t s_touch_queue;       // File de messages pour événements tactiles  
@@ -81,7 +92,9 @@ typedef enum {
     NAV_HOME  
 } nav_action_t;  
 
-static void free_bmp_paths(void);  
+static void bmp_list_free(void);
+static esp_err_t list_files_sorted(const char *base_path, size_t start_idx);
+static esp_err_t bmp_list_append(bmp_list_t *list, char *path);
 
 static int bmp_path_cmp(const void *a, const void *b)  
 {  
@@ -90,57 +103,119 @@ static int bmp_path_cmp(const void *a, const void *b)
     return strcasecmp(*pa, *pb);  
 }  
 
-// Fonction listant et triant tous les fichiers BMP d'un répertoire  
-esp_err_t list_files_sorted(const char *base_path)  
-{  
-    free_bmp_paths();  
-    DIR *dir = opendir(base_path);  
-    if (dir == NULL) {  
-        ESP_LOGE(TAG, "Impossible d'ouvrir le répertoire : %s", base_path);  
-        bmp_num = 0;  
-        return ESP_FAIL;  
-    }  
+static esp_err_t bmp_list_append(bmp_list_t *list, char *path)
+{
+    if (list->size == list->capacity) {
+        size_t new_cap = list->capacity ? list->capacity * 2 : BMP_LIST_INIT_CAP;
+        char **tmp = esp_heap_caps_realloc(list->items, new_cap * sizeof(char *), MALLOC_CAP_DEFAULT);
+        if (tmp == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+        list->items = tmp;
+        list->capacity = new_cap;
+    }
+    list->items[list->size++] = path;
+    return ESP_OK;
+}
 
-    struct dirent *entry;  
-    int i = 0;  
-    while ((entry = readdir(dir)) != NULL) {  
-        const char *file_name = entry->d_name;  
-        size_t len = strlen(file_name);  
-        if (len > 4 && strcasecmp(&file_name[len - 4], ".bmp") == 0) {  
-            if (i >= MAX_BMP_FILES) {  
-                ESP_LOGE(TAG, "Quota maximal de chemins BMP atteint (%d)", MAX_BMP_FILES);  
-                closedir(dir);  
-                bmp_num = i;  
-                qsort(BmpPath, bmp_num, sizeof(char *), bmp_path_cmp);  
-                return ESP_ERR_INVALID_SIZE;  
-            }  
-            size_t length = strlen(base_path) + strlen(file_name) + 2;  
-            BmpPath[i] = malloc(length);  
-            if (BmpPath[i] == NULL) {  
-                ESP_LOGE(TAG, "Échec d'allocation mémoire pour le chemin BMP");  
-                closedir(dir);  
-                bmp_num = i;  
-                qsort(BmpPath, bmp_num, sizeof(char *), bmp_path_cmp);  
-                return ESP_ERR_NO_MEM;  
-            }  
-            snprintf(BmpPath[i], length, "%s/%s", base_path, file_name);  
-            i++;  
-        }  
-    }  
-    closedir(dir);  
-    bmp_num = i;  
-    qsort(BmpPath, bmp_num, sizeof(char *), bmp_path_cmp);  
-    return ESP_OK;  
-}  
+// Fonction listant et triant les fichiers BMP avec pagination
+static esp_err_t list_files_sorted(const char *base_path, size_t start_idx)
+{
+    bmp_list_free();
 
-static void free_bmp_paths(void)  
-{  
-    for (int i = 0; i < bmp_num && i < MAX_BMP_FILES; i++) {  
-        free(BmpPath[i]);  
-        BmpPath[i] = NULL;  
-    }  
-    bmp_num = 0;  
-}  
+    DIR *dir = opendir(base_path);
+    if (dir == NULL) {
+        ESP_LOGE(TAG, "Impossible d'ouvrir le répertoire : %s", base_path);
+        return ESP_FAIL;
+    }
+
+    esp_err_t ret = ESP_OK;
+    char **names = NULL;
+    size_t names_size = 0;
+    size_t names_cap = 0;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        const char *file_name = entry->d_name;
+        size_t len = strlen(file_name);
+        if (len > 4 && strcasecmp(&file_name[len - 4], ".bmp") == 0) {
+            if (names_size == names_cap) {
+                size_t new_cap = names_cap ? names_cap * 2 : BMP_LIST_INIT_CAP;
+                char **tmp = esp_heap_caps_realloc(names, new_cap * sizeof(char *), MALLOC_CAP_DEFAULT);
+                if (tmp == NULL) {
+                    bmp_has_more = true;
+                    ret = ESP_ERR_NO_MEM;
+                    break;
+                }
+                names = tmp;
+                names_cap = new_cap;
+            }
+            names[names_size] = esp_heap_caps_calloc(len + 1, sizeof(char), MALLOC_CAP_DEFAULT);
+            if (names[names_size] == NULL) {
+                bmp_has_more = true;
+                ret = ESP_ERR_NO_MEM;
+                break;
+            }
+            strcpy(names[names_size], file_name);
+            names_size++;
+        }
+    }
+    closedir(dir);
+
+    if (names_size == 0) {
+        free(names);
+        return ret;
+    }
+
+    qsort(names, names_size, sizeof(char *), bmp_path_cmp);
+
+    bmp_page_start = start_idx;
+    bmp_has_more = false;
+
+    for (size_t i = start_idx; i < names_size; ++i) {
+        size_t length = strlen(base_path) + strlen(names[i]) + 2;
+        char *full_path = esp_heap_caps_calloc(length, sizeof(char), MALLOC_CAP_DEFAULT);
+        if (full_path == NULL) {
+            bmp_has_more = true;
+            ret = ESP_ERR_NO_MEM;
+            break;
+        }
+        snprintf(full_path, length, "%s/%s", base_path, names[i]);
+        esp_err_t app_ret = bmp_list_append(&bmp_list, full_path);
+        if (app_ret != ESP_OK) {
+            free(full_path);
+            bmp_has_more = true;
+            ret = app_ret;
+            break;
+        }
+    }
+
+    if (bmp_page_start + bmp_list.size < names_size) {
+        bmp_has_more = true;
+    }
+
+    bmp_last_page_size = bmp_list.size;
+
+    for (size_t i = 0; i < names_size; ++i) {
+        free(names[i]);
+    }
+    free(names);
+
+    return ret;
+}
+
+static void bmp_list_free(void)
+{
+    for (size_t i = 0; i < bmp_list.size; ++i) {
+        free(bmp_list.items[i]);
+    }
+    free(bmp_list.items);
+    bmp_list.items = NULL;
+    bmp_list.size = 0;
+    bmp_list.capacity = 0;
+    bmp_page_start = 0;
+    bmp_last_page_size = 0;
+    bmp_has_more = false;
+}
 
 static void app_cleanup(void)  
 {  
@@ -161,7 +236,7 @@ static void app_cleanup(void)
     if (unmount_ret != ESP_OK) {  
         ESP_LOGW(TAG, "sd_mmc_unmount a échoué : %s", esp_err_to_name(unmount_ret));  
     }  
-    free_bmp_paths();  
+    bmp_list_free();
     free(BlackImage);  
     BlackImage = NULL;  
 }  
@@ -409,8 +484,8 @@ static void draw_filename_bar(const char *path)
                         fname, font, WHITE, GRAY);
 }
 
-static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)  
-{  
+static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
+{
     touch_gt911_point_t point_data;  
     static enum { NAV_HL_NONE, NAV_HL_LEFT, NAV_HL_RIGHT } nav_hl = NAV_HL_NONE;  
     if (xQueueReceive(s_touch_queue, &point_data, pdMS_TO_TICKS(50)) != pdTRUE) {  
@@ -449,12 +524,21 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
         ty >= NAV_MARGIN && ty < NAV_MARGIN + ARROW_HEIGHT) {
         (*idx)--;
         if (*idx < 0) {
-            *idx = bmp_num - 1;
+            if (bmp_page_start > 0) {
+                size_t new_start = (bmp_page_start >= bmp_last_page_size) ? bmp_page_start - bmp_last_page_size : 0;
+                if (list_files_sorted(g_base_path, new_start) == ESP_OK && bmp_list.size > 0) {
+                    *idx = bmp_list.size - 1;
+                } else {
+                    *idx = 0;
+                }
+            } else {
+                *idx = bmp_list.size ? bmp_list.size - 1 : 0;
+            }
         }
         Paint_Clear(WHITE);
-        GUI_ReadBmp(0, 0, BmpPath[*idx]);
+        GUI_ReadBmp(0, 0, bmp_list.items[*idx]);
         draw_navigation_arrows();
-        draw_filename_bar(BmpPath[*idx]);
+        draw_filename_bar(bmp_list.items[*idx]);
         draw_left_arrow();
         wavesahre_rgb_lcd_display(BlackImage);
         nav_hl = NAV_HL_LEFT;
@@ -464,13 +548,22 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
                tx < g_display.width - NAV_MARGIN &&
                ty >= NAV_MARGIN && ty < NAV_MARGIN + ARROW_HEIGHT) {
         (*idx)++;
-        if (*idx > bmp_num - 1) {
-            *idx = 0;
+        if (*idx >= bmp_list.size) {
+            if (bmp_has_more) {
+                size_t new_start = bmp_page_start + bmp_list.size;
+                if (list_files_sorted(g_base_path, new_start) == ESP_OK && bmp_list.size > 0) {
+                    *idx = 0;
+                } else {
+                    *idx = bmp_list.size ? bmp_list.size - 1 : 0;
+                }
+            } else {
+                *idx = 0;
+            }
         }
         Paint_Clear(WHITE);
-        GUI_ReadBmp(0, 0, BmpPath[*idx]);
+        GUI_ReadBmp(0, 0, bmp_list.items[*idx]);
         draw_navigation_arrows();
-        draw_filename_bar(BmpPath[*idx]);
+        draw_filename_bar(bmp_list.items[*idx]);
         draw_right_arrow();
         wavesahre_rgb_lcd_display(BlackImage);
         nav_hl = NAV_HL_RIGHT;
@@ -487,8 +580,8 @@ static nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint1
             nav_hl = NAV_HL_NONE;
         }
     }
-    return NAV_NONE;  
-}  
+    return NAV_NONE;
+}
 
 static void process_background_tasks(void)  
 {  
@@ -516,10 +609,9 @@ void app_main(void)
 
     app_state_t state = APP_STATE_FOLDER_SELECTION;  
     const char *selected_dir = NULL;  
-    char base_path[BASE_PATH_LEN];  
-    int8_t index = 0;  
-    uint16_t prev_x = 0;  
-    uint16_t prev_y = 0;  
+    int8_t index = 0;
+    uint16_t prev_x = 0;
+    uint16_t prev_y = 0;
 
     while (state != APP_STATE_EXIT) {  
         switch (state) {  
@@ -529,14 +621,13 @@ void app_main(void)
                 state = APP_STATE_EXIT;  
                 break;  
             }  
-            snprintf(base_path, sizeof(base_path), "%s/%s", MOUNT_POINT, selected_dir);  
-            esp_err_t err = list_files_sorted(base_path);  
-            if (err == ESP_ERR_INVALID_SIZE) {  
-                ESP_LOGW(TAG, "Plus de %d fichiers BMP détectés, pagination requise", MAX_BMP_FILES);  
-            } else if (err != ESP_OK) {  
-                ESP_LOGE(TAG, "Erreur lors du listage : %s", esp_err_to_name(err));  
-            }  
-            if (bmp_num == 0) {  
+            snprintf(g_base_path, sizeof(g_base_path), "%s/%s", MOUNT_POINT, selected_dir);
+            bmp_page_start = 0;
+            esp_err_t err = list_files_sorted(g_base_path, bmp_page_start);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Erreur lors du listage : %s", esp_err_to_name(err));
+            }
+            if (bmp_list.size == 0) {
                 UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;  
                 UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR) + 3 * TEXT_LINE_SPACING;  
                 Paint_DrawString_EN(nofile_x, nofile_y, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);  
@@ -555,7 +646,7 @@ void app_main(void)
             if (act == NAV_EXIT) {  
                 state = APP_STATE_EXIT;  
             } else if (act == NAV_HOME) {  
-                free_bmp_paths();  
+                bmp_list_free();
                 index = 0;  
                 prev_x = 0;  
                 prev_y = 0;  
