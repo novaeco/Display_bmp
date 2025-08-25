@@ -136,7 +136,10 @@ static void process_background_tasks(void)
 
     TickType_t now = xTaskGetTickCount();
     if (pdTICKS_TO_MS(now - s_last_activity_ticks) > INACTIVITY_TIMEOUT_MS) {
-        esp_light_sleep_start();
+        esp_err_t slp_ret = esp_light_sleep_start();
+        if (slp_ret != ESP_OK) {
+            ESP_LOGW(TAG, "Light sleep failed: %s", esp_err_to_name(slp_ret));
+        }
         pm_update_activity();
     }
 }
