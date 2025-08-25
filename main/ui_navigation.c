@@ -61,7 +61,7 @@ image_source_t draw_source_selection(void)
     draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                        "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
 
-    wavesahre_rgb_lcd_display(BlackImage);
+    waveshare_rgb_lcd_display(BlackImage);
 
     enum { HIGHLIGHT_NONE, HIGHLIGHT_LEFT, HIGHLIGHT_RIGHT } highlight = HIGHLIGHT_NONE;
     while (1) {
@@ -78,7 +78,7 @@ image_source_t draw_source_selection(void)
                         }
                         draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
                                            "Locales", BTN_LABEL_L_OFFSET_X, GRAY);
-                        wavesahre_rgb_lcd_display(BlackImage);
+                        waveshare_rgb_lcd_display(BlackImage);
                         highlight = HIGHLIGHT_LEFT;
                     }
                 } else if (tx >= btnR_x0 && tx <= btnR_x1 && ty >= btnR_y0 && ty <= btnR_y1) {
@@ -89,7 +89,7 @@ image_source_t draw_source_selection(void)
                         }
                         draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                                            "Distantes", BTN_LABEL_R_OFFSET_X, GRAY);
-                        wavesahre_rgb_lcd_display(BlackImage);
+                        waveshare_rgb_lcd_display(BlackImage);
                         highlight = HIGHLIGHT_RIGHT;
                     }
                 } else if (highlight != HIGHLIGHT_NONE) {
@@ -100,7 +100,7 @@ image_source_t draw_source_selection(void)
                         draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                                            "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
                     }
-                    wavesahre_rgb_lcd_display(BlackImage);
+                    waveshare_rgb_lcd_display(BlackImage);
                     highlight = HIGHLIGHT_NONE;
                 }
             } else if (point_data.cnt == 0 && highlight != HIGHLIGHT_NONE) {
@@ -109,7 +109,7 @@ image_source_t draw_source_selection(void)
                                    "Locales", BTN_LABEL_L_OFFSET_X, WHITE);
                 draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                                    "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
-                wavesahre_rgb_lcd_display(BlackImage);
+                waveshare_rgb_lcd_display(BlackImage);
                 return src;
             }
         }
@@ -142,7 +142,7 @@ const char *draw_folder_selection(void)
     draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                        "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
 
-    wavesahre_rgb_lcd_display(BlackImage);
+    waveshare_rgb_lcd_display(BlackImage);
 
     const char *selected_dir = NULL;
     enum { HIGHLIGHT_NONE, HIGHLIGHT_LEFT, HIGHLIGHT_RIGHT } highlight = HIGHLIGHT_NONE;
@@ -163,7 +163,7 @@ const char *draw_folder_selection(void)
                         }
                         draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
                                            "Reptiles", BTN_LABEL_L_OFFSET_X, GRAY);
-                        wavesahre_rgb_lcd_display(BlackImage);
+                        waveshare_rgb_lcd_display(BlackImage);
                         highlight = HIGHLIGHT_LEFT;
                     }
                 } else if (tx >= btnR_x0 && tx <= btnR_x1 && ty >= btnR_y0 && ty <= btnR_y1) {
@@ -174,7 +174,7 @@ const char *draw_folder_selection(void)
                         }
                         draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                                            "Presentation", BTN_LABEL_R_OFFSET_X, GRAY);
-                        wavesahre_rgb_lcd_display(BlackImage);
+                        waveshare_rgb_lcd_display(BlackImage);
                         highlight = HIGHLIGHT_RIGHT;
                     }
                 } else if (highlight != HIGHLIGHT_NONE) {
@@ -185,7 +185,7 @@ const char *draw_folder_selection(void)
                         draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                                            "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
                     }
-                    wavesahre_rgb_lcd_display(BlackImage);
+                    waveshare_rgb_lcd_display(BlackImage);
                     highlight = HIGHLIGHT_NONE;
                 }
             } else if (point_data.cnt == 0 && highlight != HIGHLIGHT_NONE) {
@@ -198,7 +198,7 @@ const char *draw_folder_selection(void)
                                        "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
                     selected_dir = "Presentation";
                 }
-                wavesahre_rgb_lcd_display(BlackImage);
+                waveshare_rgb_lcd_display(BlackImage);
                 highlight = HIGHLIGHT_NONE;
             }
         }
@@ -208,7 +208,7 @@ const char *draw_folder_selection(void)
     Paint_DrawString_EN(text_x, text_y1, "Dossier choisi :", &Font24, BLACK, WHITE);
     Paint_DrawString_EN(text_x, text_y2, (char *)selected_dir, &Font24, BLACK, WHITE);
     Paint_DrawString_EN(text_x, text_y2 + TEXT_LINE_SPACING, "Touchez la fleche pour demarrer.", &Font24, BLACK, WHITE);
-    wavesahre_rgb_lcd_display(BlackImage);
+    waveshare_rgb_lcd_display(BlackImage);
     return selected_dir;
 }
 
@@ -290,7 +290,7 @@ nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pr
             draw_right_arrow();
         }
         if (nav_hl != NAV_HL_NONE) {
-            wavesahre_rgb_lcd_display(BlackImage);
+            waveshare_rgb_lcd_display(BlackImage);
         }
         nav_hl = NAV_HL_NONE;
         *prev_x = 0;
@@ -329,7 +329,7 @@ nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pr
         draw_navigation_arrows();
         draw_filename_bar(bmp_list.items[*idx]);
         draw_left_arrow();
-        wavesahre_rgb_lcd_display(BlackImage);
+        waveshare_rgb_lcd_display(BlackImage);
         nav_hl = NAV_HL_LEFT;
         *prev_x = tx;
         *prev_y = ty;
@@ -354,18 +354,18 @@ nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pr
         draw_navigation_arrows();
         draw_filename_bar(bmp_list.items[*idx]);
         draw_right_arrow();
-        wavesahre_rgb_lcd_display(BlackImage);
+        waveshare_rgb_lcd_display(BlackImage);
         nav_hl = NAV_HL_RIGHT;
         *prev_x = tx;
         *prev_y = ty;
     } else {
         if (nav_hl == NAV_HL_LEFT) {
             draw_left_arrow();
-            wavesahre_rgb_lcd_display(BlackImage);
+            waveshare_rgb_lcd_display(BlackImage);
             nav_hl = NAV_HL_NONE;
         } else if (nav_hl == NAV_HL_RIGHT) {
             draw_right_arrow();
-            wavesahre_rgb_lcd_display(BlackImage);
+            waveshare_rgb_lcd_display(BlackImage);
             nav_hl = NAV_HL_NONE;
         }
     }
