@@ -1,4 +1,4 @@
 idf_component_register(SRCS "rgb_lcd_port.c"
                         INCLUDE_DIRS "."
-                        REQUIRES driver esp_lcd gpio i2c config
+                        REQUIRES driver esp_lcd gpio i2c config io_extension
                         )

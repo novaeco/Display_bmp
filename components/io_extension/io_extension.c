@@ -12,6 +12,7 @@
  *
  ******************************************************************************/
 #include "io_extension.h"  // Include IO_EXTENSION driver header for GPIO functions
+#include "config.h"
  
 io_extension_obj_t IO_EXTENSION;  // Define the global IO_EXTENSION object
 
@@ -124,4 +125,9 @@ uint16_t IO_EXTENSION_Adc_Input()
     uint16_t value = 0;
     ESP_ERROR_CHECK(DEV_I2C_Read_Word(IO_EXTENSION.addr, IO_EXTENSION_ADC_ADDR, &value));
     return value;
+}
+
+void io_extension_lcd_vdd_enable(bool en)
+{
+    IO_EXTENSION_Output(CONFIG_IOEXT_LCD_VDD_EN, en ? 1 : 0);
 }
