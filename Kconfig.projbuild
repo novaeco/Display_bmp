@@ -1,40 +1,5 @@
 menu "Project configuration"
 
-config DISPLAY_WIDTH
-    int "Display width"
-    default 1024
-
-config DISPLAY_HEIGHT
-    int "Display height"
-    default 600
-
-config DISPLAY_MARGIN_LEFT
-    int "Left margin"
-    default 120
-
-config DISPLAY_MARGIN_RIGHT
-    int "Right margin"
-    default 120
-
-config DISPLAY_MARGIN_TOP
-    int "Top margin"
-    default 0
-
-config DISPLAY_MARGIN_BOTTOM
-    int "Bottom margin"
-    default 0
-
-choice DISPLAY_ORIENTATION
-    prompt "Display orientation"
-    default DISPLAY_ORIENTATION_LANDSCAPE
-
-config DISPLAY_ORIENTATION_LANDSCAPE
-    bool "Landscape orientation"
-
-config DISPLAY_ORIENTATION_PORTRAIT
-    bool "Portrait orientation"
-endchoice
-
 config MIN_BRIGHTNESS
     int "Minimum backlight brightness (%)"
     default 25
@@ -52,10 +17,6 @@ config WIFI_SSID
 config WIFI_PASSWORD
     string "WiFi Password"
     default ""
-
-config IMAGE_FETCH_URL
-    string "Image fetch URL"
-    default "http://example.com/image.bmp"
 
 config WIFI_PROV_TIMEOUT_MS
     int "WiFi provisioning timeout (ms)"
