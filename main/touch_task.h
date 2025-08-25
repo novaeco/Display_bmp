@@ -5,7 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include "esp_lcd_touch.h"
+#include "touch.h"
 
 extern TaskHandle_t s_touch_task_handle;
 extern QueueHandle_t s_touch_queue;
