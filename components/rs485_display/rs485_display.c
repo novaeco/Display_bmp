@@ -10,7 +10,7 @@
 #include "esp_log.h"
 
 extern QueueHandle_t s_touch_queue;
-extern const display_geometry_t g_display;
+extern display_geometry_t g_display;
 
 #define RS485_DISPLAY_TAG "RS485_DISP"
 #define RS485_UART UART_NUM_1
