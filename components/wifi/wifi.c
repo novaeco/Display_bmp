@@ -14,6 +14,7 @@
 #include "wifi_provisioning/scheme_softap.h"
 #endif
 #include "esp_system.h"
+#include "esp_timer.h"
 #include <stdio.h>
 
 static const char *TAG = "wifi";
@@ -84,12 +85,23 @@ esp_err_t wifi_init_sta(uint32_t timeout_ms)
         ESP_LOGI(TAG, "Starting provisioning service: %s", service_name);
         ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(WIFI_PROV_SECURITY_0,
                                                         NULL, service_name, NULL));
-        while (!provisioned) {
+
+        int64_t start_time = esp_timer_get_time();
+        while (!provisioned &&
+               (esp_timer_get_time() - start_time) <
+                   (CONFIG_WIFI_PROV_TIMEOUT_MS * 1000LL)) {
             vTaskDelay(pdMS_TO_TICKS(500));
             wifi_prov_mgr_is_provisioned(&provisioned);
         }
-        ESP_LOGI(TAG, "Provisioning successful");
+
         wifi_prov_mgr_stop_provisioning();
+        if (!provisioned) {
+            ESP_LOGE(TAG, "Provisioning timeout");
+            wifi_prov_mgr_deinit();
+            return ESP_ERR_TIMEOUT;
+        }
+
+        ESP_LOGI(TAG, "Provisioning successful");
     }
 
     wifi_prov_mgr_deinit();
