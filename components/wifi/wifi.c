@@ -1,4 +1,5 @@
 #include "wifi.h"
+#include "sdkconfig.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
@@ -42,6 +43,10 @@ esp_err_t wifi_init_sta(uint32_t timeout_ms)
     }
 
     s_wifi_event_group = xEventGroupCreate();
+    if (s_wifi_event_group == NULL) {
+        ESP_LOGE(TAG, "Failed to create event group");
+        return ESP_ERR_NO_MEM;
+    }
 
     esp_event_handler_instance_t instance_any_id;
     esp_event_handler_instance_t instance_got_ip;
