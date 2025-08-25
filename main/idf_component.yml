@@ -1,4 +1,6 @@
 dependencies:
   idf:
     version: ">=5.1.0"
-  esp_http_server: "*"
+  esp_http_server:
+    version: "*"
+    source: idf
