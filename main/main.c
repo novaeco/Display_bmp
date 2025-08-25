@@ -36,6 +36,7 @@
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "nvs_flash.h"
+#include "esp_psram.h"
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -76,6 +77,8 @@ static bool init_peripherals(void)
 {
     ESP_ERROR_CHECK(nvs_flash_init());
     display_load_orientation();
+
+    ESP_ERROR_CHECK(esp_psram_init());
 
     if (!touch_task_init()) {
         ESP_LOGE(TAG, "Échec d'initialisation de la tâche tactile");

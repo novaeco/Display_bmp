@@ -109,7 +109,10 @@ esp_lcd_panel_handle_t waveshare_esp32_s3_rgb_lcd_init()
 
     // Allocate the window buffer and its mutex
     if (!s_window_buf) {
-        s_window_buf = heap_caps_malloc(LCD_H_RES * LCD_V_RES * 2, MALLOC_CAP_DMA);
+        s_window_buf = heap_caps_malloc(
+            LCD_H_RES * LCD_V_RES * 2,
+            MALLOC_CAP_DMA | MALLOC_CAP_SPIRAM
+        );
         if (!s_window_buf) {
             ESP_LOGE(TAG, "Failed to allocate window buffer");
         }
