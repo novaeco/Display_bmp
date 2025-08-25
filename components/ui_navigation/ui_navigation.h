@@ -25,7 +25,8 @@ typedef enum {
     NAV_HOME,
     NAV_ZOOM_IN,
     NAV_ZOOM_OUT,
-    NAV_SCROLL
+    NAV_SCROLL,
+    NAV_ROTATE
 } nav_action_t;
 
 typedef enum {
