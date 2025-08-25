@@ -2,8 +2,9 @@
 #include "pngle.h"
 #include "gui_bmp.h" // for RGB macro
 #include "Debug.h"
+#include "esp_timer.h"
+#include "config.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 typedef struct {
@@ -12,7 +13,7 @@ typedef struct {
     UWORD width;
     UWORD height;
     UWORD cur_row;
-    UWORD *rowbuf;
+    UWORD row[LCD_H_RES];
     uint16_t bg;
     int err;
 } PNGCTX;
@@ -23,22 +24,16 @@ static void png_init(pngle_t *pngle, uint32_t w, uint32_t h) {
     ctx->height = h;
     ctx->cur_row = 0;
     ctx->bg = WHITE;
-    if (ctx->x + w > Paint.Width || ctx->y + h > Paint.Height) {
+    if (w > LCD_H_RES || ctx->x + w > Paint.Width || ctx->y + h > Paint.Height) {
         Debug("GUI_ReadPng: image too big %u x %u\n", w, h);
         ctx->err = 1;
         return;
     }
-    ctx->rowbuf = (UWORD *)malloc(w * sizeof(UWORD));
-    if (!ctx->rowbuf) {
-        Debug("GUI_ReadPng: row buffer alloc failed\n");
-        ctx->err = 1;
-    }
 }
 
 static void flush_row(PNGCTX *ctx) {
-    if (!ctx->rowbuf) return;
     UBYTE *dst = Paint.Image + (ctx->y + ctx->cur_row) * Paint.WidthByte + ctx->x * 2;
-    memcpy(dst, ctx->rowbuf, ctx->width * 2);
+    memcpy(dst, ctx->row, ctx->width * 2);
 }
 
 static void png_draw(pngle_t *pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint8_t rgba[4]) {
@@ -64,7 +59,7 @@ static void png_draw(pngle_t *pngle, uint32_t x, uint32_t y, uint32_t w, uint32_
                 g = (g * a + (bg << 2) * (255 - a)) / 255;
                 b = (b * a + (bb << 3) * (255 - a)) / 255;
             }
-            ctx->rowbuf[ax] = RGB(r, g, b);
+            ctx->row[ax] = RGB(r, g, b);
         }
     }
 }
@@ -93,7 +88,6 @@ UBYTE GUI_ReadPng(UWORD Xstart, UWORD Ystart, const char *path) {
     PNGCTX ctx = {
         .x = Xstart,
         .y = Ystart,
-        .rowbuf = NULL,
         .bg = WHITE,
         .err = 0,
     };
@@ -105,6 +99,7 @@ UBYTE GUI_ReadPng(UWORD Xstart, UWORD Ystart, const char *path) {
     char buf[1024];
     size_t remain = 0;
     int len;
+    int64_t start_time = esp_timer_get_time();
     while (!feof(fp)) {
         len = fread(buf + remain, 1, sizeof(buf) - remain, fp);
         if (len <= 0) break;
@@ -117,8 +112,9 @@ UBYTE GUI_ReadPng(UWORD Xstart, UWORD Ystart, const char *path) {
         remain = remain + len - fed;
         if (remain > 0) memmove(buf, buf + fed, remain);
     }
+    int64_t end_time = esp_timer_get_time();
+    printf("GUI_ReadPng render time: %lld us\n", (long long)(end_time - start_time));
 
-    if (ctx.rowbuf) free(ctx.rowbuf);
     pngle_destroy(pngle);
     fclose(fp);
     return ctx.err ? 0 : 1;
