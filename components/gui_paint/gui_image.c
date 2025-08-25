@@ -13,11 +13,10 @@
 
 #include "gui_image.h"
 #include "gui_bmp.h"
+#include "gui_png.h"
 #include "gui_jpg.h"
 #include <string.h>
 #include <strings.h>
-
-UBYTE GUI_ReadPng(UWORD Xstart, UWORD Ystart, const char *path);
 
 UBYTE GUI_ReadImage(UWORD Xstart, UWORD Ystart, const char *path)
 {
@@ -43,9 +42,4 @@ UBYTE GUI_ReadImage(UWORD Xstart, UWORD Ystart, const char *path)
     }
 }
 
-UBYTE __attribute__((weak)) GUI_ReadPng(UWORD Xstart, UWORD Ystart, const char *path)
-{
-    Debug("GUI_ReadPng not implemented\n");
-    return 0;
-}
 
