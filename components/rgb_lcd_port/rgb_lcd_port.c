@@ -13,6 +13,7 @@
 
 #include "rgb_lcd_port.h"
 #include "freertos/semphr.h"
+#include "driver/ledc.h"
 #include <string.h>
 
 
@@ -24,6 +25,7 @@ static esp_lcd_panel_handle_t panel_handle = NULL; // Declare a handle for the L
 // Statically allocated window buffer and its mutex
 static uint8_t *s_window_buf = NULL;
 static SemaphoreHandle_t s_window_buf_mutex = NULL;
+static bool s_backlight_pwm_init = false;
 
 /**
  * @brief Initialize the RGB LCD panel on the ESP32-S3
@@ -218,7 +220,7 @@ void waveshare_esp32_s3_rgb_lcd_deinit(void)
  */
 void wavesahre_rgb_lcd_bl_on()
 {
-    IO_EXTENSION_Output(IO_EXTENSION_IO_2, 1);  // Backlight ON configuration
+    waveshare_rgb_lcd_set_brightness(100);
 }
 
 /**
@@ -233,5 +235,46 @@ void wavesahre_rgb_lcd_bl_on()
  */
 void wavesahre_rgb_lcd_bl_off()
 {
-    IO_EXTENSION_Output(IO_EXTENSION_IO_2,0);  // Backlight OFF configuration
+    waveshare_rgb_lcd_set_brightness(0);
+}
+
+static void rgb_lcd_backlight_pwm_init(void)
+{
+    if (s_backlight_pwm_init) {
+        return;
+    }
+    ledc_timer_config_t timer = {
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .timer_num = LEDC_TIMER_0,
+        .duty_resolution = LEDC_TIMER_10_BIT,
+        .freq_hz = 5000,
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
+    ledc_timer_config(&timer);
+
+    ledc_channel_config_t channel = {
+        .gpio_num = EXAMPLE_PIN_NUM_BK_LIGHT,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_0,
+        .intr_type = LEDC_INTR_DISABLE,
+        .timer_sel = LEDC_TIMER_0,
+        .duty = 0,
+        .hpoint = 0,
+    };
+    ledc_channel_config(&channel);
+
+    s_backlight_pwm_init = true;
+}
+
+void waveshare_rgb_lcd_set_brightness(uint8_t level)
+{
+    if (!s_backlight_pwm_init) {
+        rgb_lcd_backlight_pwm_init();
+    }
+    if (level > 100) {
+        level = 100;
+    }
+    uint32_t duty = (1 << LEDC_TIMER_10_BIT) * level / 100;
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
 }

@@ -14,9 +14,10 @@
 #include "rgb_lcd_port.h"    // En-tête du pilote LCD RGB Waveshare  
 #include "gui_paint.h"       // En-tête des fonctions de dessin graphique  
 #include "gui_bmp.h"         // En-tête pour la gestion des images BMP  
-#include "gt911.h"           // En-tête des opérations de l'écran tactile (GT911)  
-#include "sd.h"              // En-tête des opérations sur carte SD  
-#include "config.h"  
+#include "gt911.h"           // En-tête des opérations de l'écran tactile (GT911)
+#include "sd.h"              // En-tête des opérations sur carte SD
+#include "config.h"
+#include "battery.h"
 
 #include <dirent.h>          // En-tête pour les opérations sur répertoires
 #include <stdio.h>
@@ -205,7 +206,9 @@ static bool init_peripherals(void)
         return false;  
     }  
 
-    wavesahre_rgb_lcd_bl_on();  
+    wavesahre_rgb_lcd_bl_on();
+    waveshare_rgb_lcd_set_brightness(100);
+    battery_init();
 
     UDOUBLE Imagesize = g_display.width * g_display.height * 2;  
     BlackImage = (UBYTE *)malloc(Imagesize);  
@@ -367,6 +370,13 @@ static void draw_navigation_arrows(void)
     draw_right_arrow();
     // Bouton Home (lettre H dans le coin supérieur gauche)
     Paint_DrawString_EN(2, NAV_MARGIN, "H", &Font16, BLUE, WHITE);
+    char batt_buf[8];
+    uint8_t batt = battery_get_percentage();
+    snprintf(batt_buf, sizeof(batt_buf), "%u%%", batt);
+    UWORD bx = g_display.width - 4 * Font16.Width;
+    UWORD by = NAV_MARGIN;
+    Paint_DrawRectangle(bx, by, g_display.width, by + Font16.Height, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_EN(bx, by, batt_buf, &Font16, BLACK, WHITE);
 }
 
 static void draw_filename_bar(const char *path)
