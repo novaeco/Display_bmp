@@ -210,7 +210,9 @@ void app_main(void)
     uint16_t prev_x = 0;
     uint16_t prev_y = 0;
 
-    while (state != APP_STATE_EXIT) {  
+    app_state_t state = APP_STATE_SOURCE_SELECTION;
+
+    while (state != APP_STATE_EXIT) {
         switch (state) {  
         case APP_STATE_SOURCE_SELECTION:
             img_src = draw_source_selection();
