@@ -7,8 +7,9 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path);
 /**
  * @brief Download an image over HTTP into PSRAM.
  *
- * The function allocates a buffer in PSRAM sized according to the
- * server-provided Content-Length and fills it with the downloaded data.
+ * The function streams the response and grows the PSRAM buffer as needed
+ * until `esp_http_client_read()` returns 0. A SHA-256 checksum supplied by
+ * the server via the `X-File-SHA256` header is verified to ensure data integrity.
  *
  * @param url  HTTP URL of the image to download
  * @param data Output pointer receiving the allocated buffer
