@@ -7,7 +7,7 @@
 #include "config.h"
 #include "rgb_lcd_port.h"
 #include "sd.h"
-#include "touch/gt911.h"
+#include "gt911.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "esp_log.h"
