@@ -50,7 +50,6 @@
 char g_base_path[BASE_PATH_LEN];     // Chemin du dossier actuellement affiché
 static const char *TAG = "APP";
 UBYTE *BlackImage;         // Framebuffer global
-display_geometry_t g_display;
 
 typedef enum {
     APP_STATE_SOURCE_SELECTION = 0,
