@@ -6,7 +6,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "touch.h"
-#include "touch/gt911.h"
+#include "gt911.h"
 
 extern TaskHandle_t s_touch_task_handle;
 extern QueueHandle_t s_touch_queue;
