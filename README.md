@@ -97,6 +97,7 @@ The connection between ESP Board and the LCD is as follows:
    | `CONFIG_UART_ISR_IN_IRAM` & `CONFIG_UART_RS485_MODE` | Allow deterministic RS485 on UART1 | `y` when using RS485 |
    | `CONFIG_PM_ENABLE` | Dynamic power management for battery operation | `y` |
    | `CONFIG_LCD_BACKLIGHT_PWM` | Backlight dimming via PWM | `y` |
+   | `CONFIG_IMAGE_FETCH_INSECURE` | Skip TLS validation for image fetcher | `n` (enable only for testing) |
 
 ### Build and Flash
 
@@ -109,6 +110,10 @@ The first invocation of `idf.py` downloads tools and may take additional time.
 Press `Ctrl-]` to exit the serial monitor.
 
 Refer to the [ESP‑IDF Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html) for a complete toolchain installation tutorial.
+
+### Certificate requirements
+
+When fetching images over HTTPS the server's root CA certificate must be provided at build time in `components/image_fetcher/cert/cert.pem`. Replace the placeholder file with the PEM‑encoded certificate of your server. Alternatively, enable `CONFIG_IMAGE_FETCH_INSECURE` to bypass validation (not recommended for production).
 
 ## Hardware Options
 
