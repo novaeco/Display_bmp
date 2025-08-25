@@ -13,6 +13,7 @@
 #define ARROW_HEIGHT             60
 #define BTN_LABEL_L_OFFSET_X     60
 #define BTN_LABEL_R_OFFSET_X     40
+#define BTN_LABEL_N_OFFSET_X     20
 #define BTN_LABEL_OFFSET_Y       12
 #define HOME_TOUCH_WIDTH         NAV_MARGIN
 #define HOME_TOUCH_HEIGHT        ARROW_HEIGHT
@@ -29,7 +30,8 @@ typedef enum {
 
 typedef enum {
     IMAGE_SOURCE_LOCAL = 0,
-    IMAGE_SOURCE_REMOTE
+    IMAGE_SOURCE_REMOTE,
+    IMAGE_SOURCE_NETWORK
 } image_source_t;
 
 const char *draw_folder_selection(void);

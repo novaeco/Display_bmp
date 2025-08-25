@@ -62,14 +62,21 @@ image_source_t draw_source_selection(void)
     UWORD btnR_y0 = btnL_y0;
     UWORD btnR_y1 = btnL_y1;
 
+    UWORD btnN_x0 = (g_display.width - BTN_WIDTH) / 2;
+    UWORD btnN_y0 = btnL_y1 + NAV_MARGIN;
+    UWORD btnN_x1 = btnN_x0 + BTN_WIDTH;
+    UWORD btnN_y1 = btnN_y0 + BTN_HEIGHT;
+
     draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
                        "Locales", BTN_LABEL_L_OFFSET_X, WHITE);
     draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                        "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
+    draw_folder_button(btnN_x0, btnN_y0, btnN_x1, btnN_y1,
+                       "Source réseau", BTN_LABEL_N_OFFSET_X, WHITE);
 
     waveshare_rgb_lcd_display(BlackImage);
 
-    enum { HIGHLIGHT_NONE, HIGHLIGHT_LEFT, HIGHLIGHT_RIGHT } highlight = HIGHLIGHT_NONE;
+    enum { HIGHLIGHT_NONE, HIGHLIGHT_LEFT, HIGHLIGHT_RIGHT, HIGHLIGHT_NET } highlight = HIGHLIGHT_NONE;
     while (1) {
         if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) == pdTRUE) {
             if (point_data.cnt == 1) {
@@ -81,6 +88,9 @@ image_source_t draw_source_selection(void)
                         if (highlight == HIGHLIGHT_RIGHT) {
                             draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                                                "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
+                        } else if (highlight == HIGHLIGHT_NET) {
+                            draw_folder_button(btnN_x0, btnN_y0, btnN_x1, btnN_y1,
+                                               "Source réseau", BTN_LABEL_N_OFFSET_X, WHITE);
                         }
                         draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
                                            "Locales", BTN_LABEL_L_OFFSET_X, GRAY);
@@ -92,29 +102,56 @@ image_source_t draw_source_selection(void)
                         if (highlight == HIGHLIGHT_LEFT) {
                             draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
                                                "Locales", BTN_LABEL_L_OFFSET_X, WHITE);
+                        } else if (highlight == HIGHLIGHT_NET) {
+                            draw_folder_button(btnN_x0, btnN_y0, btnN_x1, btnN_y1,
+                                               "Source réseau", BTN_LABEL_N_OFFSET_X, WHITE);
                         }
                         draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                                            "Distantes", BTN_LABEL_R_OFFSET_X, GRAY);
                         waveshare_rgb_lcd_display(BlackImage);
                         highlight = HIGHLIGHT_RIGHT;
                     }
+                } else if (tx >= btnN_x0 && tx <= btnN_x1 && ty >= btnN_y0 && ty <= btnN_y1) {
+                    if (highlight != HIGHLIGHT_NET) {
+                        if (highlight == HIGHLIGHT_LEFT) {
+                            draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                                               "Locales", BTN_LABEL_L_OFFSET_X, WHITE);
+                        } else if (highlight == HIGHLIGHT_RIGHT) {
+                            draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                                               "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
+                        }
+                        draw_folder_button(btnN_x0, btnN_y0, btnN_x1, btnN_y1,
+                                           "Source réseau", BTN_LABEL_N_OFFSET_X, GRAY);
+                        waveshare_rgb_lcd_display(BlackImage);
+                        highlight = HIGHLIGHT_NET;
+                    }
                 } else if (highlight != HIGHLIGHT_NONE) {
                     if (highlight == HIGHLIGHT_LEFT) {
                         draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
                                            "Locales", BTN_LABEL_L_OFFSET_X, WHITE);
-                    } else {
+                    } else if (highlight == HIGHLIGHT_RIGHT) {
                         draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                                            "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
+                    } else {
+                        draw_folder_button(btnN_x0, btnN_y0, btnN_x1, btnN_y1,
+                                           "Source réseau", BTN_LABEL_N_OFFSET_X, WHITE);
                     }
                     waveshare_rgb_lcd_display(BlackImage);
                     highlight = HIGHLIGHT_NONE;
                 }
             } else if (point_data.cnt == 0 && highlight != HIGHLIGHT_NONE) {
-                image_source_t src = (highlight == HIGHLIGHT_LEFT) ? IMAGE_SOURCE_LOCAL : IMAGE_SOURCE_REMOTE;
+                image_source_t src = IMAGE_SOURCE_LOCAL;
+                if (highlight == HIGHLIGHT_RIGHT) {
+                    src = IMAGE_SOURCE_REMOTE;
+                } else if (highlight == HIGHLIGHT_NET) {
+                    src = IMAGE_SOURCE_NETWORK;
+                }
                 draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
                                    "Locales", BTN_LABEL_L_OFFSET_X, WHITE);
                 draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
                                    "Distantes", BTN_LABEL_R_OFFSET_X, WHITE);
+                draw_folder_button(btnN_x0, btnN_y0, btnN_x1, btnN_y1,
+                                   "Source réseau", BTN_LABEL_N_OFFSET_X, WHITE);
                 waveshare_rgb_lcd_display(BlackImage);
                 return src;
             }
