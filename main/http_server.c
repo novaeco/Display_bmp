@@ -127,6 +127,7 @@ esp_err_t start_file_server(void)
         return ESP_OK;
     }
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.uri_match_fn = httpd_uri_match_wildcard;
     if (httpd_start(&s_server, &config) != ESP_OK) {
         ESP_LOGE(TAG, "httpd_start failed");
         s_server = NULL;
