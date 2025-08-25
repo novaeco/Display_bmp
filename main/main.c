@@ -349,7 +349,7 @@ static void draw_left_arrow(void)
     Paint_DrawRectangle(NAV_MARGIN, NAV_MARGIN,
                         NAV_MARGIN + ARROW_WIDTH, NAV_MARGIN + ARROW_HEIGHT,
                         WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    GUI_ReadBmp(NAV_MARGIN, NAV_MARGIN, "pic/arrow_left.bmp");
+    GUI_ReadBmp(NAV_MARGIN, NAV_MARGIN, MOUNT_POINT "/pic/arrow_left.bmp");
 }
 
 static void draw_right_arrow(void)
@@ -358,7 +358,7 @@ static void draw_right_arrow(void)
     Paint_DrawRectangle(x, NAV_MARGIN,
                         x + ARROW_WIDTH, NAV_MARGIN + ARROW_HEIGHT,
                         WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    GUI_ReadBmp(x, NAV_MARGIN, "pic/arrow_right.bmp");
+    GUI_ReadBmp(x, NAV_MARGIN, MOUNT_POINT "/pic/arrow_right.bmp");
 }
 
 static void draw_navigation_arrows(void)
