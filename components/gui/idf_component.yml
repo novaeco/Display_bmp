@@ -1,2 +1,2 @@
 dependencies:
-  lvgl: "*"
+  lvgl/lvgl: "^8.3"
