@@ -151,7 +151,14 @@ void app_main(void)
         .min_freq_mhz = 40,
         .light_sleep_enable = true,
     };
-    ESP_ERROR_CHECK(esp_pm_configure(&pm_cfg));
+#if CONFIG_PM_ENABLE
+    esp_err_t err = esp_pm_configure(&pm_cfg);
+    if (err == ESP_ERR_NOT_SUPPORTED) {
+        ESP_LOGW(TAG, "PM non supporté, configuration ignorée");
+    } else {
+        ESP_ERROR_CHECK(err);
+    }
+#endif
     pm_update_activity();
 
     esp_err_t sd_ret = sd_mmc_init();
