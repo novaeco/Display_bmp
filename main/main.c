@@ -25,6 +25,9 @@
 #include "pm.h"
 #include "can_display.h"
 #include "rs485_display.h"
+#include "http_server.h"
+#include "esp_netif.h"
+#include "lwip/inet.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -216,6 +219,39 @@ void app_main(void)
                     waveshare_rgb_lcd_display(BlackImage);
                     state = APP_STATE_NAVIGATION;
                 }
+            } else if (img_src == IMAGE_SOURCE_NETWORK) {
+                esp_err_t wifi_ret = ESP_FAIL;
+                for (int attempt = 0; attempt < WIFI_MAX_RETRY && wifi_ret != ESP_OK; ++attempt) {
+                    wifi_ret = wifi_init_sta(WIFI_CONNECT_TIMEOUT_MS);
+                    if (wifi_ret != ESP_OK) {
+                        ESP_LOGW(TAG, "Tentative WiFi %d/%d échouée: %s", attempt + 1,
+                                 WIFI_MAX_RETRY, esp_err_to_name(wifi_ret));
+                        UWORD err_x = g_display.width / TEXT_X_DIVISOR;
+                        UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
+                        Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED, WHITE);
+                        waveshare_rgb_lcd_display(BlackImage);
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                    }
+                }
+                if (wifi_ret == ESP_OK) {
+                    if (start_file_server() == ESP_OK) {
+                        esp_netif_ip_info_t ip;
+                        esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+                        if (netif && esp_netif_get_ip_info(netif, &ip) == ESP_OK) {
+                            char ip_str[IP4ADDR_STRLEN_MAX];
+                            ip4addr_ntoa_r((ip4_addr_t *)&ip.ip, ip_str, sizeof(ip_str));
+                            char url[32];
+                            snprintf(url, sizeof(url), "http://%s", ip_str);
+                            UWORD msg_x = g_display.width / TEXT_X_DIVISOR;
+                            UWORD msg_y = g_display.height / TEXT_Y1_DIVISOR;
+                            Paint_Clear(WHITE);
+                            Paint_DrawString_EN(msg_x, msg_y, "Upload BMP via:", &Font24, BLACK, WHITE);
+                            Paint_DrawString_EN(msg_x, msg_y + TEXT_LINE_SPACING, url, &Font24, BLACK, WHITE);
+                            waveshare_rgb_lcd_display(BlackImage);
+                        }
+                    }
+                }
+                state = APP_STATE_SOURCE_SELECTION;
             } else {
                 state = APP_STATE_FOLDER_SELECTION;
             }
