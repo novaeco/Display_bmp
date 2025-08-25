@@ -27,6 +27,120 @@ menu "Display options"
     endchoice
 endmenu
 
+menu "LCD panel options"
+    config LCD_PIXEL_CLOCK_HZ
+        int "Pixel clock frequency (Hz)"
+        default 30000000
+
+    config LCD_BIT_PER_PIXEL
+        int "Bits per pixel"
+        default 16
+
+    config LCD_RGB_DATA_WIDTH
+        int "RGB data width"
+        default 16
+
+    config LCD_RGB_BUFFER_NUMS
+        int "Number of frame buffers"
+        default 2
+
+    config LCD_IO_RGB_DISP
+        int "DISP GPIO number (-1 if unused)"
+        default -1
+
+    config LCD_IO_RGB_VSYNC
+        int "VSYNC GPIO number"
+        default 3
+
+    config LCD_IO_RGB_HSYNC
+        int "HSYNC GPIO number"
+        default 46
+
+    config LCD_IO_RGB_DE
+        int "DE GPIO number"
+        default 5
+
+    config LCD_IO_RGB_PCLK
+        int "PCLK GPIO number"
+        default 7
+
+    config LCD_IO_RGB_DATA0
+        int "RGB DATA0 GPIO (B3)"
+        default 14
+
+    config LCD_IO_RGB_DATA1
+        int "RGB DATA1 GPIO (B4)"
+        default 38
+
+    config LCD_IO_RGB_DATA2
+        int "RGB DATA2 GPIO (B5)"
+        default 18
+
+    config LCD_IO_RGB_DATA3
+        int "RGB DATA3 GPIO (B6)"
+        default 17
+
+    config LCD_IO_RGB_DATA4
+        int "RGB DATA4 GPIO (B7)"
+        default 10
+
+    config LCD_IO_RGB_DATA5
+        int "RGB DATA5 GPIO (G2)"
+        default 39
+
+    config LCD_IO_RGB_DATA6
+        int "RGB DATA6 GPIO (G3)"
+        default 0
+
+    config LCD_IO_RGB_DATA7
+        int "RGB DATA7 GPIO (G4)"
+        default 45
+
+    config LCD_IO_RGB_DATA8
+        int "RGB DATA8 GPIO (G5)"
+        default 48
+
+    config LCD_IO_RGB_DATA9
+        int "RGB DATA9 GPIO (G6)"
+        default 47
+
+    config LCD_IO_RGB_DATA10
+        int "RGB DATA10 GPIO (G7)"
+        default 21
+
+    config LCD_IO_RGB_DATA11
+        int "RGB DATA11 GPIO (R3)"
+        default 1
+
+    config LCD_IO_RGB_DATA12
+        int "RGB DATA12 GPIO (R4)"
+        default 2
+
+    config LCD_IO_RGB_DATA13
+        int "RGB DATA13 GPIO (R5)"
+        default 42
+
+    config LCD_IO_RGB_DATA14
+        int "RGB DATA14 GPIO (R6)"
+        default 41
+
+    config LCD_IO_RGB_DATA15
+        int "RGB DATA15 GPIO (R7)"
+        default 40
+
+    config LCD_IO_RST
+        int "Reset GPIO number (-1 if unused)"
+        default -1
+
+    config LCD_PIN_NUM_BK_LIGHT
+        int "Backlight GPIO number"
+        default 16
+
+    config LCD_BK_LIGHT_ON_LEVEL
+        bool "Backlight active high"
+        default y
+endmenu
+
 menu "SD card options"
     choice SDMMC_BUS_WIDTH
         prompt "SDMMC bus width"

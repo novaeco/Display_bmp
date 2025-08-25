@@ -47,9 +47,9 @@ esp_lcd_panel_handle_t waveshare_esp32_s3_rgb_lcd_init()
     esp_lcd_rgb_panel_config_t panel_config = {
         .clk_src = LCD_CLK_SRC_DEFAULT, // Use the default clock source
         .timings = {
-            .pclk_hz = EXAMPLE_LCD_PIXEL_CLOCK_HZ, // Pixel clock frequency in Hz
-            .h_res = EXAMPLE_LCD_H_RES,            // Horizontal resolution (number of pixels per row)
-            .v_res = EXAMPLE_LCD_V_RES,            // Vertical resolution (number of rows)
+            .pclk_hz = LCD_PIXEL_CLOCK_HZ, // Pixel clock frequency in Hz
+            .h_res = LCD_H_RES,            // Horizontal resolution (number of pixels per row)
+            .v_res = LCD_V_RES,            // Vertical resolution (number of rows)
             .hsync_pulse_width = 162,                // Horizontal sync pulse width
             .hsync_back_porch = 152,                 // Horizontal back porch
             .hsync_front_porch = 48,                // Horizontal front porch
@@ -60,35 +60,35 @@ esp_lcd_panel_handle_t waveshare_esp32_s3_rgb_lcd_init()
                 .pclk_active_neg = 1, // Set pixel clock polarity to active low
             },
         },
-        .data_width = EXAMPLE_RGB_DATA_WIDTH,                    // Data width for RGB signals
-        .bits_per_pixel = EXAMPLE_RGB_BIT_PER_PIXEL,             // Number of bits per pixel (color depth)
-        .num_fbs = EXAMPLE_LCD_RGB_BUFFER_NUMS,                  // Number of framebuffers for double/triple buffering
-        .bounce_buffer_size_px = EXAMPLE_RGB_BOUNCE_BUFFER_SIZE, // Bounce buffer size in pixels
+        .data_width = LCD_RGB_DATA_WIDTH,                    // Data width for RGB signals
+        .bits_per_pixel = LCD_RGB_BIT_PER_PIXEL,             // Number of bits per pixel (color depth)
+        .num_fbs = LCD_RGB_BUFFER_NUMS,                  // Number of framebuffers for double/triple buffering
+        .bounce_buffer_size_px = LCD_RGB_BOUNCE_BUFFER_SIZE, // Bounce buffer size in pixels
         .sram_trans_align = 4,                                   // SRAM transaction alignment in bytes
         .psram_trans_align = 64,                                 // PSRAM transaction alignment in bytes
-        .hsync_gpio_num = EXAMPLE_LCD_IO_RGB_HSYNC,              // GPIO for horizontal sync signal
-        .vsync_gpio_num = EXAMPLE_LCD_IO_RGB_VSYNC,              // GPIO for vertical sync signal
-        .de_gpio_num = EXAMPLE_LCD_IO_RGB_DE,                    // GPIO for data enable signal
-        .pclk_gpio_num = EXAMPLE_LCD_IO_RGB_PCLK,                // GPIO for pixel clock signal
-        .disp_gpio_num = EXAMPLE_LCD_IO_RGB_DISP,                // GPIO for display enable signal
+        .hsync_gpio_num = LCD_IO_RGB_HSYNC,              // GPIO for horizontal sync signal
+        .vsync_gpio_num = LCD_IO_RGB_VSYNC,              // GPIO for vertical sync signal
+        .de_gpio_num = LCD_IO_RGB_DE,                    // GPIO for data enable signal
+        .pclk_gpio_num = LCD_IO_RGB_PCLK,                // GPIO for pixel clock signal
+        .disp_gpio_num = LCD_IO_RGB_DISP,                // GPIO for display enable signal
         .data_gpio_nums = {
             // GPIOs for RGB data signals
-            EXAMPLE_LCD_IO_RGB_DATA0,  // Data bit 0
-            EXAMPLE_LCD_IO_RGB_DATA1,  // Data bit 1
-            EXAMPLE_LCD_IO_RGB_DATA2,  // Data bit 2
-            EXAMPLE_LCD_IO_RGB_DATA3,  // Data bit 3
-            EXAMPLE_LCD_IO_RGB_DATA4,  // Data bit 4
-            EXAMPLE_LCD_IO_RGB_DATA5,  // Data bit 5
-            EXAMPLE_LCD_IO_RGB_DATA6,  // Data bit 6
-            EXAMPLE_LCD_IO_RGB_DATA7,  // Data bit 7
-            EXAMPLE_LCD_IO_RGB_DATA8,  // Data bit 8
-            EXAMPLE_LCD_IO_RGB_DATA9,  // Data bit 9
-            EXAMPLE_LCD_IO_RGB_DATA10, // Data bit 10
-            EXAMPLE_LCD_IO_RGB_DATA11, // Data bit 11
-            EXAMPLE_LCD_IO_RGB_DATA12, // Data bit 12
-            EXAMPLE_LCD_IO_RGB_DATA13, // Data bit 13
-            EXAMPLE_LCD_IO_RGB_DATA14, // Data bit 14
-            EXAMPLE_LCD_IO_RGB_DATA15, // Data bit 15
+            LCD_IO_RGB_DATA0,  // Data bit 0
+            LCD_IO_RGB_DATA1,  // Data bit 1
+            LCD_IO_RGB_DATA2,  // Data bit 2
+            LCD_IO_RGB_DATA3,  // Data bit 3
+            LCD_IO_RGB_DATA4,  // Data bit 4
+            LCD_IO_RGB_DATA5,  // Data bit 5
+            LCD_IO_RGB_DATA6,  // Data bit 6
+            LCD_IO_RGB_DATA7,  // Data bit 7
+            LCD_IO_RGB_DATA8,  // Data bit 8
+            LCD_IO_RGB_DATA9,  // Data bit 9
+            LCD_IO_RGB_DATA10, // Data bit 10
+            LCD_IO_RGB_DATA11, // Data bit 11
+            LCD_IO_RGB_DATA12, // Data bit 12
+            LCD_IO_RGB_DATA13, // Data bit 13
+            LCD_IO_RGB_DATA14, // Data bit 14
+            LCD_IO_RGB_DATA15, // Data bit 15
         },
         .flags = {
             .fb_in_psram = 1, // Use PSRAM for framebuffers to save internal SRAM
@@ -106,7 +106,7 @@ esp_lcd_panel_handle_t waveshare_esp32_s3_rgb_lcd_init()
 
     // Allocate the window buffer and its mutex
     if (!s_window_buf) {
-        s_window_buf = heap_caps_malloc(EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES * 2, MALLOC_CAP_DMA);
+        s_window_buf = heap_caps_malloc(LCD_H_RES * LCD_V_RES * 2, MALLOC_CAP_DMA);
         if (!s_window_buf) {
             ESP_LOGE(TAG, "Failed to allocate window buffer");
         }
@@ -140,11 +140,11 @@ void wavesahre_rgb_lcd_display_window(int16_t Xstart, int16_t Ystart, int16_t Xe
 {
     // Ensure Xstart is within valid range, clip Xend to the screen width if necessary
     if (Xstart < 0) Xstart = 0;
-    else if (Xend > EXAMPLE_LCD_H_RES) Xend = EXAMPLE_LCD_H_RES;
+    else if (Xend > LCD_H_RES) Xend = LCD_H_RES;
 
     // Ensure Ystart is within valid range, clip Yend to the screen height if necessary
     if (Ystart < 0) Ystart = 0;
-    else if (Yend > EXAMPLE_LCD_V_RES) Yend = EXAMPLE_LCD_V_RES;
+    else if (Yend > LCD_V_RES) Yend = LCD_V_RES;
 
     // Calculate the width and height of the cropped region
     int crop_width = Xend - Xstart;
@@ -160,7 +160,7 @@ void wavesahre_rgb_lcd_display_window(int16_t Xstart, int16_t Ystart, int16_t Xe
 
     // Copy the image data into the pre-allocated window buffer
     for (int y = 0; y < crop_height; y++) {
-        const uint8_t *src_row = Image + ((Ystart + y) * EXAMPLE_LCD_H_RES + Xstart) * 2;
+        const uint8_t *src_row = Image + ((Ystart + y) * LCD_H_RES + Xstart) * 2;
         uint8_t *dst_row = s_window_buf + y * crop_width * 2;
         memcpy(dst_row, src_row, crop_width * 2);
     }
@@ -185,7 +185,7 @@ void wavesahre_rgb_lcd_display_window(int16_t Xstart, int16_t Ystart, int16_t Xe
 void wavesahre_rgb_lcd_display(uint8_t *Image)
 {
     // Draw the entire image on the screen
-    esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES, Image);
+    esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, LCD_H_RES, LCD_V_RES, Image);
 }
 
 void waveshare_get_frame_buffer(void **buf1, void **buf2)
@@ -253,7 +253,7 @@ static void rgb_lcd_backlight_pwm_init(void)
     ledc_timer_config(&timer);
 
     ledc_channel_config_t channel = {
-        .gpio_num = EXAMPLE_PIN_NUM_BK_LIGHT,
+        .gpio_num = LCD_PIN_NUM_BK_LIGHT,
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .channel = LEDC_CHANNEL_0,
         .intr_type = LEDC_INTR_DISABLE,

@@ -396,8 +396,8 @@ esp_lcd_touch_handle_t touch_gt911_init()
     ESP_LOGI(TAG, "Initialize touch controller GT911");  // Log touch controller initialization
     // Configure the touch controller with necessary settings (coordinates, GPIO pins, etc.)
     const esp_lcd_touch_config_t tp_cfg = {
-        .x_max = EXAMPLE_LCD_H_RES,  // Set the maximum X coordinate based on screen resolution
-        .y_max = EXAMPLE_LCD_V_RES,  // Set the maximum Y coordinate based on screen resolution
+        .x_max = LCD_H_RES,  // Set the maximum X coordinate based on screen resolution
+        .y_max = LCD_V_RES,  // Set the maximum Y coordinate based on screen resolution
         .rst_gpio_num = EXAMPLE_PIN_NUM_TOUCH_RST,  // GPIO number for reset
         .int_gpio_num = EXAMPLE_PIN_NUM_TOUCH_INT,  // GPIO number for interrupt
         .levels = {

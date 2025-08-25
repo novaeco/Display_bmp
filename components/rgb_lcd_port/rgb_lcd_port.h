@@ -31,61 +31,61 @@
 
 /**
  * @brief LCD Resolution and Timing
+ *
+ * LCD_H_RES and LCD_V_RES are defined in config.h based on menuconfig options.
  */
-#define EXAMPLE_LCD_H_RES               (LCD_H_RES)  ///< Horizontal resolution in pixels
-#define EXAMPLE_LCD_V_RES               (LCD_V_RES)  ///< Vertical resolution in pixels
-#define EXAMPLE_LCD_PIXEL_CLOCK_HZ      (30 * 1000 * 1000) ///< Pixel clock frequency in Hz
+#define LCD_PIXEL_CLOCK_HZ      CONFIG_LCD_PIXEL_CLOCK_HZ ///< Pixel clock frequency in Hz
 
 /**
  * @brief Color and Pixel Configuration
  */
-#define EXAMPLE_LCD_BIT_PER_PIXEL       (16)   ///< Bits per pixel (color depth)
-#define EXAMPLE_RGB_BIT_PER_PIXEL       (16)   ///< RGB interface color depth
-#define EXAMPLE_RGB_DATA_WIDTH          (16)   ///< Data width for RGB interface
-#define EXAMPLE_LCD_RGB_BUFFER_NUMS     (2)    ///< Number of frame buffers for double buffering
-#define EXAMPLE_RGB_BOUNCE_BUFFER_SIZE  (EXAMPLE_LCD_H_RES * 10) ///< Size of bounce buffer for RGB data
+#define LCD_BIT_PER_PIXEL       CONFIG_LCD_BIT_PER_PIXEL   ///< Bits per pixel (color depth)
+#define LCD_RGB_BIT_PER_PIXEL   CONFIG_LCD_BIT_PER_PIXEL   ///< RGB interface color depth
+#define LCD_RGB_DATA_WIDTH      CONFIG_LCD_RGB_DATA_WIDTH  ///< Data width for RGB interface
+#define LCD_RGB_BUFFER_NUMS     CONFIG_LCD_RGB_BUFFER_NUMS ///< Number of frame buffers for double buffering
+#define LCD_RGB_BOUNCE_BUFFER_SIZE  (LCD_H_RES * 10) ///< Size of bounce buffer for RGB data
 
 /**
  * @brief GPIO Pins for RGB LCD Signals
  */
-#define EXAMPLE_LCD_IO_RGB_DISP         (-1)   ///< DISP signal, -1 if not used
-#define EXAMPLE_LCD_IO_RGB_VSYNC        (GPIO_NUM_3)  ///< Vertical sync signal
-#define EXAMPLE_LCD_IO_RGB_HSYNC        (GPIO_NUM_46) ///< Horizontal sync signal
-#define EXAMPLE_LCD_IO_RGB_DE           (GPIO_NUM_5)  ///< Data enable signal
-#define EXAMPLE_LCD_IO_RGB_PCLK         (GPIO_NUM_7)  ///< Pixel clock signal
+#define LCD_IO_RGB_DISP         CONFIG_LCD_IO_RGB_DISP   ///< DISP signal, -1 if not used
+#define LCD_IO_RGB_VSYNC        CONFIG_LCD_IO_RGB_VSYNC  ///< Vertical sync signal
+#define LCD_IO_RGB_HSYNC        CONFIG_LCD_IO_RGB_HSYNC  ///< Horizontal sync signal
+#define LCD_IO_RGB_DE           CONFIG_LCD_IO_RGB_DE     ///< Data enable signal
+#define LCD_IO_RGB_PCLK         CONFIG_LCD_IO_RGB_PCLK   ///< Pixel clock signal
 
 /**
  * @brief GPIO Pins for RGB Data Signals
  */
 // Blue data signals
-#define EXAMPLE_LCD_IO_RGB_DATA0        (GPIO_NUM_14) ///< B3
-#define EXAMPLE_LCD_IO_RGB_DATA1        (GPIO_NUM_38) ///< B4
-#define EXAMPLE_LCD_IO_RGB_DATA2        (GPIO_NUM_18) ///< B5
-#define EXAMPLE_LCD_IO_RGB_DATA3        (GPIO_NUM_17) ///< B6
-#define EXAMPLE_LCD_IO_RGB_DATA4        (GPIO_NUM_10) ///< B7
+#define LCD_IO_RGB_DATA0        CONFIG_LCD_IO_RGB_DATA0 ///< B3
+#define LCD_IO_RGB_DATA1        CONFIG_LCD_IO_RGB_DATA1 ///< B4
+#define LCD_IO_RGB_DATA2        CONFIG_LCD_IO_RGB_DATA2 ///< B5
+#define LCD_IO_RGB_DATA3        CONFIG_LCD_IO_RGB_DATA3 ///< B6
+#define LCD_IO_RGB_DATA4        CONFIG_LCD_IO_RGB_DATA4 ///< B7
 
 // Green data signals
-#define EXAMPLE_LCD_IO_RGB_DATA5        (GPIO_NUM_39) ///< G2
-#define EXAMPLE_LCD_IO_RGB_DATA6        (GPIO_NUM_0)  ///< G3
-#define EXAMPLE_LCD_IO_RGB_DATA7        (GPIO_NUM_45) ///< G4
-#define EXAMPLE_LCD_IO_RGB_DATA8        (GPIO_NUM_48) ///< G5
-#define EXAMPLE_LCD_IO_RGB_DATA9        (GPIO_NUM_47) ///< G6
-#define EXAMPLE_LCD_IO_RGB_DATA10       (GPIO_NUM_21) ///< G7
+#define LCD_IO_RGB_DATA5        CONFIG_LCD_IO_RGB_DATA5 ///< G2
+#define LCD_IO_RGB_DATA6        CONFIG_LCD_IO_RGB_DATA6 ///< G3
+#define LCD_IO_RGB_DATA7        CONFIG_LCD_IO_RGB_DATA7 ///< G4
+#define LCD_IO_RGB_DATA8        CONFIG_LCD_IO_RGB_DATA8 ///< G5
+#define LCD_IO_RGB_DATA9        CONFIG_LCD_IO_RGB_DATA9 ///< G6
+#define LCD_IO_RGB_DATA10       CONFIG_LCD_IO_RGB_DATA10 ///< G7
 
 // Red data signals
-#define EXAMPLE_LCD_IO_RGB_DATA11       (GPIO_NUM_1)  ///< R3
-#define EXAMPLE_LCD_IO_RGB_DATA12       (GPIO_NUM_2)  ///< R4
-#define EXAMPLE_LCD_IO_RGB_DATA13       (GPIO_NUM_42) ///< R5
-#define EXAMPLE_LCD_IO_RGB_DATA14       (GPIO_NUM_41) ///< R6
-#define EXAMPLE_LCD_IO_RGB_DATA15       (GPIO_NUM_40) ///< R7
+#define LCD_IO_RGB_DATA11       CONFIG_LCD_IO_RGB_DATA11 ///< R3
+#define LCD_IO_RGB_DATA12       CONFIG_LCD_IO_RGB_DATA12 ///< R4
+#define LCD_IO_RGB_DATA13       CONFIG_LCD_IO_RGB_DATA13 ///< R5
+#define LCD_IO_RGB_DATA14       CONFIG_LCD_IO_RGB_DATA14 ///< R6
+#define LCD_IO_RGB_DATA15       CONFIG_LCD_IO_RGB_DATA15 ///< R7
 
 /**
  * @brief Reset and Backlight Configuration
  */
-#define EXAMPLE_LCD_IO_RST              (-1)   ///< Reset pin, -1 if not used
-#define EXAMPLE_PIN_NUM_BK_LIGHT        (GPIO_NUM_16)   ///< Backlight pin (EXIO2)
-#define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL   (1)    ///< Logic level to turn on backlight
-#define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL  (!EXAMPLE_LCD_BK_LIGHT_ON_LEVEL) ///< Logic level to turn off backlight
+#define LCD_IO_RST              CONFIG_LCD_IO_RST         ///< Reset pin, -1 if not used
+#define LCD_PIN_NUM_BK_LIGHT    CONFIG_LCD_PIN_NUM_BK_LIGHT   ///< Backlight pin (EXIO2)
+#define LCD_BK_LIGHT_ON_LEVEL   (CONFIG_LCD_BK_LIGHT_ON_LEVEL)    ///< Logic level to turn on backlight
+#define LCD_BK_LIGHT_OFF_LEVEL  (!CONFIG_LCD_BK_LIGHT_ON_LEVEL)   ///< Logic level to turn off backlight
 
 /**
  * @brief Function Declarations
