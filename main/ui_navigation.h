@@ -37,5 +37,6 @@ void draw_navigation_arrows(void);
 void draw_filename_bar(const char *path);
 nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y);
 image_source_t draw_source_selection(void);
+void draw_orientation_menu(void);
 
 #endif // UI_NAVIGATION_H

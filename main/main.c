@@ -31,6 +31,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
+#include "nvs_flash.h"
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -45,14 +46,7 @@
 char g_base_path[BASE_PATH_LEN];     // Chemin du dossier actuellement affiché
 static const char *TAG = "APP";
 UBYTE *BlackImage;         // Framebuffer global
-const display_geometry_t g_display = {
-    .width = LCD_H_RES,  
-    .height = LCD_V_RES,  
-    .margin_left = LCD_MARGIN_LEFT,  
-    .margin_right = LCD_MARGIN_RIGHT,  
-    .margin_top = LCD_MARGIN_TOP,  
-    .margin_bottom = LCD_MARGIN_BOTTOM,  
-};  
+display_geometry_t g_display;
 
 typedef enum {
     APP_STATE_SOURCE_SELECTION = 0,
@@ -77,6 +71,9 @@ static void app_cleanup(void)
 
 static bool init_peripherals(void)
 {
+    ESP_ERROR_CHECK(nvs_flash_init());
+    display_load_orientation();
+
     if (!touch_task_init()) {
         ESP_LOGE(TAG, "Échec d'initialisation de la tâche tactile");
         return false;
@@ -101,15 +98,16 @@ static bool init_peripherals(void)
         return false;
     }
 
-    UDOUBLE Imagesize = g_display.width * g_display.height * 2;
+    UDOUBLE Imagesize = LCD_H_RES * LCD_V_RES * 2;
     BlackImage = (UBYTE *)malloc(Imagesize);
     if (BlackImage == NULL) {
         ESP_LOGE(TAG, "Échec d’allocation mémoire pour le framebuffer...");
         return false;
     }
 
-    Paint_NewImage(BlackImage, g_display.width, g_display.height, 0, WHITE);
+    Paint_NewImage(BlackImage, LCD_H_RES, LCD_V_RES, 0, WHITE);
     Paint_SetScale(PAINT_SCALE);
+    Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
     Paint_Clear(WHITE);
 
     return true;
@@ -171,6 +169,8 @@ void app_main(void)
         app_cleanup();
         return;
     }
+
+    draw_orientation_menu();
 
     app_state_t state = APP_STATE_SOURCE_SELECTION;
     const char *selected_dir = NULL;
