@@ -20,7 +20,7 @@
 #include "file_manager.h"
 #include "ui_navigation.h"
 #include "touch_task.h"
-#include "wifi.h"
+#include "wifi_manager.h"
 #include "image_fetcher.h"
 #include "pm.h"
 #include "can_display.h"
@@ -46,7 +46,6 @@
 #define BASE_PATH_LEN            128
 #define PAINT_SCALE              65
 #define WIFI_CONNECT_TIMEOUT_MS  10000
-#define WIFI_MAX_RETRY           3
 
 char g_base_path[BASE_PATH_LEN];     // Chemin du dossier actuellement affiché
 static const char *TAG = "APP";
@@ -59,6 +58,18 @@ typedef enum {
     APP_STATE_ERROR,
     APP_STATE_EXIT
 } app_state_t;
+
+static volatile bool s_wifi_ready = false;
+static volatile bool s_wifi_failed = false;
+
+static void wifi_status_cb(wifi_manager_event_t event)
+{
+    if (event == WIFI_MANAGER_EVENT_CONNECTED) {
+        s_wifi_ready = true;
+    } else if (event == WIFI_MANAGER_EVENT_FAIL) {
+        s_wifi_failed = true;
+    }
+}
 
 
 static void app_cleanup(void)
@@ -180,6 +191,8 @@ void app_main(void)
 
     draw_orientation_menu();
 
+    wifi_manager_register_callback(wifi_status_cb);
+
     app_state_t state = APP_STATE_SOURCE_SELECTION;
     const char *selected_dir = NULL;
     image_source_t img_src = IMAGE_SOURCE_LOCAL;
@@ -192,20 +205,19 @@ void app_main(void)
         case APP_STATE_SOURCE_SELECTION:
             img_src = draw_source_selection();
             if (img_src == IMAGE_SOURCE_REMOTE) {
-                esp_err_t wifi_ret = ESP_FAIL;
-                for (int attempt = 0; attempt < WIFI_MAX_RETRY && wifi_ret != ESP_OK; ++attempt) {
-                    wifi_ret = wifi_init_sta(WIFI_CONNECT_TIMEOUT_MS);
-                    if (wifi_ret != ESP_OK) {
-                        ESP_LOGW(TAG, "Tentative WiFi %d/%d échouée: %s", attempt + 1,
-                                 WIFI_MAX_RETRY, esp_err_to_name(wifi_ret));
-                        UWORD err_x = g_display.width / TEXT_X_DIVISOR;
-                        UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
-                        Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED, WHITE);
-                        waveshare_rgb_lcd_display(BlackImage);
-                        vTaskDelay(pdMS_TO_TICKS(1000));
-                    }
+                s_wifi_ready = false;
+                s_wifi_failed = false;
+                wifi_manager_start();
+                int wait_ms = WIFI_CONNECT_TIMEOUT_MS;
+                while (!s_wifi_ready && !s_wifi_failed && wait_ms > 0) {
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                    wait_ms -= 100;
                 }
-                if (wifi_ret != ESP_OK) {
+                if (!s_wifi_ready) {
+                    UWORD err_x = g_display.width / TEXT_X_DIVISOR;
+                    UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
+                    Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED, WHITE);
+                    waveshare_rgb_lcd_display(BlackImage);
                     state = APP_STATE_ERROR;
                     break;
                 }
@@ -225,20 +237,15 @@ void app_main(void)
                     state = APP_STATE_NAVIGATION;
                 }
             } else if (img_src == IMAGE_SOURCE_NETWORK) {
-                esp_err_t wifi_ret = ESP_FAIL;
-                for (int attempt = 0; attempt < WIFI_MAX_RETRY && wifi_ret != ESP_OK; ++attempt) {
-                    wifi_ret = wifi_init_sta(WIFI_CONNECT_TIMEOUT_MS);
-                    if (wifi_ret != ESP_OK) {
-                        ESP_LOGW(TAG, "Tentative WiFi %d/%d échouée: %s", attempt + 1,
-                                 WIFI_MAX_RETRY, esp_err_to_name(wifi_ret));
-                        UWORD err_x = g_display.width / TEXT_X_DIVISOR;
-                        UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
-                        Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED, WHITE);
-                        waveshare_rgb_lcd_display(BlackImage);
-                        vTaskDelay(pdMS_TO_TICKS(1000));
-                    }
+                s_wifi_ready = false;
+                s_wifi_failed = false;
+                wifi_manager_start();
+                int wait_ms = WIFI_CONNECT_TIMEOUT_MS;
+                while (!s_wifi_ready && !s_wifi_failed && wait_ms > 0) {
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                    wait_ms -= 100;
                 }
-                if (wifi_ret == ESP_OK) {
+                if (s_wifi_ready) {
                     if (start_file_server() == ESP_OK) {
                         esp_netif_ip_info_t ip;
                         esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
