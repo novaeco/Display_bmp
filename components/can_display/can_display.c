@@ -10,7 +10,7 @@
 #include "esp_log.h"
 
 extern QueueHandle_t s_touch_queue;
-extern const display_geometry_t g_display;
+extern display_geometry_t g_display;
 
 #define CAN_DISPLAY_TAG "CAN_DISP"
 #define CAN_TX_PIN GPIO_NUM_20

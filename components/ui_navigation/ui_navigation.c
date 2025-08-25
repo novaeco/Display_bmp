@@ -12,7 +12,7 @@
 #include <stdio.h>
 
 extern UBYTE *BlackImage;
-extern const display_geometry_t g_display;
+extern display_geometry_t g_display;
 extern char g_base_path[];
 
 static float s_zoom_level = 1.0f;
