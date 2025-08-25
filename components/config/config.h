@@ -149,6 +149,10 @@
 #define CONFIG_LCD_BK_LIGHT_ON_LEVEL 1
 #endif
 
+#ifndef CONFIG_IOEXT_LCD_VDD_EN
+#define CONFIG_IOEXT_LCD_VDD_EN 6
+#endif
+
 #include <stdint.h>
 
 typedef struct {

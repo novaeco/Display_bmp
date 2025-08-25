@@ -18,6 +18,7 @@
  #define __IO_EXTENSION_H
  
  #include "i2c.h"  // Include I2C header for I2C communication functions
+ #include <stdbool.h>
  
  /* 
   * IO EXTENSION GPIO control via I2C - Register and Command Definitions
@@ -62,6 +63,7 @@
  uint8_t IO_EXTENSION_Input(uint8_t pin);   // Read IO pin input state
  void IO_EXTENSION_Pwm_Output(uint8_t Value);
  uint16_t IO_EXTENSION_Adc_Input();
+ void io_extension_lcd_vdd_enable(bool en);
  
  #endif  // __IO_EXTENSION_H
  

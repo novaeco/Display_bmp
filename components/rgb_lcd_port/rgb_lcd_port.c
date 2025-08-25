@@ -14,6 +14,7 @@
 #include "rgb_lcd_port.h"
 #include "freertos/semphr.h"
 #include "driver/ledc.h"
+#include "io_extension.h"
 #include <string.h>
 
 
@@ -101,6 +102,7 @@ esp_lcd_panel_handle_t waveshare_esp32_s3_rgb_lcd_init()
     // Log the initialization of the RGB LCD panel
     ESP_LOGI(TAG, "Initialize RGB LCD panel");
 
+    io_extension_lcd_vdd_enable(true);
     // Initialize the RGB LCD panel
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
 
