@@ -136,7 +136,7 @@ esp_lcd_panel_handle_t waveshare_esp32_s3_rgb_lcd_init()
  * @param Yend Ending Y coordinate of the display window (exclusive, relative to Ystart).
  * @param Image Pointer to the image data buffer, representing the full LCD resolution.
  */
-void wavesahre_rgb_lcd_display_window(int16_t Xstart, int16_t Ystart, int16_t Xend, int16_t Yend, uint8_t *Image)
+void waveshare_rgb_lcd_display_window(int16_t Xstart, int16_t Ystart, int16_t Xend, int16_t Yend, uint8_t *Image)
 {
     // Ensure Xstart is within valid range, clip Xend to the screen width if necessary
     if (Xstart < 0) Xstart = 0;
@@ -182,7 +182,7 @@ void wavesahre_rgb_lcd_display_window(int16_t Xstart, int16_t Ystart, int16_t Xe
  *
  * @param Image Pointer to the image data buffer.
  */
-void wavesahre_rgb_lcd_display(uint8_t *Image)
+void waveshare_rgb_lcd_display(uint8_t *Image)
 {
     // Draw the entire image on the screen
     esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, LCD_H_RES, LCD_V_RES, Image);
@@ -218,7 +218,7 @@ void waveshare_esp32_s3_rgb_lcd_deinit(void)
  * @return
  *    - ESP_OK: Operation successful.
  */
-void wavesahre_rgb_lcd_bl_on()
+void waveshare_rgb_lcd_bl_on()
 {
     waveshare_rgb_lcd_set_brightness(100);
 }
@@ -233,7 +233,7 @@ void wavesahre_rgb_lcd_bl_on()
  * @return
  *    - ESP_OK: Operation successful.
  */
-void wavesahre_rgb_lcd_bl_off()
+void waveshare_rgb_lcd_bl_off()
 {
     waveshare_rgb_lcd_set_brightness(0);
 }

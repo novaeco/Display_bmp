@@ -83,7 +83,7 @@ static bool init_peripherals(void)
         return false;
     }
 
-    wavesahre_rgb_lcd_bl_on();
+    waveshare_rgb_lcd_bl_on();
     waveshare_rgb_lcd_set_brightness(100);
     battery_init();
 
@@ -121,7 +121,7 @@ void app_main(void)
         UWORD err_x = g_display.width / TEXT_X_DIVISOR;
         UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
         Paint_DrawString_EN(err_x, err_y, "Échec carte SD !", &Font24, BLACK, WHITE);
-        wavesahre_rgb_lcd_display(BlackImage);
+        waveshare_rgb_lcd_display(BlackImage);
         app_cleanup();
         return;
     }
@@ -147,7 +147,7 @@ void app_main(void)
                         UWORD err_x = g_display.width / TEXT_X_DIVISOR;
                         UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
                         Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED, WHITE);
-                        wavesahre_rgb_lcd_display(BlackImage);
+                        waveshare_rgb_lcd_display(BlackImage);
                         vTaskDelay(pdMS_TO_TICKS(1000));
                     }
                 }
@@ -163,11 +163,11 @@ void app_main(void)
                     UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
                     UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR);
                     Paint_DrawString_EN(nofile_x, nofile_y, "Aucune image distante.", &Font24, RED, WHITE);
-                    wavesahre_rgb_lcd_display(BlackImage);
+                    waveshare_rgb_lcd_display(BlackImage);
                     state = APP_STATE_ERROR;
                 } else {
                     draw_navigation_arrows();
-                    wavesahre_rgb_lcd_display(BlackImage);
+                    waveshare_rgb_lcd_display(BlackImage);
                     state = APP_STATE_NAVIGATION;
                 }
             } else {
@@ -191,12 +191,12 @@ void app_main(void)
                 UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;  
                 UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR) + 3 * TEXT_LINE_SPACING;  
                 Paint_DrawString_EN(nofile_x, nofile_y, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);  
-                wavesahre_rgb_lcd_display(BlackImage);  
+                waveshare_rgb_lcd_display(BlackImage);  
                 app_cleanup();  
                 state = APP_STATE_ERROR;  
             } else {  
                 draw_navigation_arrows();  
-                wavesahre_rgb_lcd_display(BlackImage);  
+                waveshare_rgb_lcd_display(BlackImage);  
                 state = APP_STATE_NAVIGATION;  
             }  
             break;  
@@ -212,7 +212,7 @@ void app_main(void)
                 prev_y = 0;
                 selected_dir = NULL;
                 Paint_Clear(WHITE);
-                wavesahre_rgb_lcd_display(BlackImage);
+                waveshare_rgb_lcd_display(BlackImage);
                 state = APP_STATE_SOURCE_SELECTION;
             }
             break;
