@@ -9,6 +9,12 @@
 #include <strings.h>
 #include <errno.h>
 #include <ctype.h>
+#include <stdio.h>
+#include <stdint.h>
+#ifdef CONFIG_UPLOAD_AUTH_TOKEN_PRESENT
+#include "mbedtls/sha256.h"
+#include "auth_token_hash.h"
+#endif
 
 static const char *TAG = "http_srv";
 static httpd_handle_t s_server = NULL;
@@ -54,16 +60,39 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    if (strlen(CONFIG_UPLOAD_AUTH_TOKEN)) {
-        size_t auth_len = httpd_req_get_hdr_value_len(req, "Authorization");
-        char auth[64];
-        if (auth_len == 0 || auth_len >= sizeof(auth) ||
-            httpd_req_get_hdr_value_str(req, "Authorization", auth, sizeof(auth)) != ESP_OK ||
-            strcmp(auth, CONFIG_UPLOAD_AUTH_TOKEN) != 0) {
-            httpd_resp_set_status(req, "401 Unauthorized");
-            httpd_resp_send(req, "Unauthorized", HTTPD_RESP_USE_STRLEN);
-            return ESP_FAIL;
-        }
+    size_t auth_len;
+#ifdef CONFIG_UPLOAD_AUTH_TOKEN_PRESENT
+    auth_len = httpd_req_get_hdr_value_len(req, "Authorization");
+    char auth[64];
+    if (auth_len == 0 || auth_len >= sizeof(auth) ||
+        httpd_req_get_hdr_value_str(req, "Authorization", auth, sizeof(auth)) != ESP_OK) {
+        httpd_resp_set_status(req, "401 Unauthorized");
+        httpd_resp_send(req, "Unauthorized", HTTPD_RESP_USE_STRLEN);
+        return ESP_FAIL;
+    }
+
+    uint8_t hash[32];
+    mbedtls_sha256_context ctx;
+    mbedtls_sha256_init(&ctx);
+    mbedtls_sha256_starts_ret(&ctx, 0);
+    mbedtls_sha256_update_ret(&ctx, (const unsigned char *)auth, strlen(auth));
+    mbedtls_sha256_finish_ret(&ctx, hash);
+    mbedtls_sha256_free(&ctx);
+
+    if (memcmp(hash, upload_token_hash, sizeof(hash)) != 0) {
+        httpd_resp_set_status(req, "401 Unauthorized");
+        httpd_resp_send(req, "Unauthorized", HTTPD_RESP_USE_STRLEN);
+        return ESP_FAIL;
+    }
+#endif
+
+    auth_len = httpd_req_get_hdr_value_len(req, "Content-Type");
+    char ctype[32];
+    if (auth_len == 0 || auth_len >= sizeof(ctype) ||
+        httpd_req_get_hdr_value_str(req, "Content-Type", ctype, sizeof(ctype)) != ESP_OK ||
+        strcasecmp(ctype, "image/bmp") != 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Content-Type must be image/bmp");
+        return ESP_FAIL;
     }
 
     if (req->content_len > CONFIG_UPLOAD_MAX_BYTES) {
@@ -119,6 +148,14 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
             fclose(f);
             unlink(filepath);
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "write fail");
+            return ESP_FAIL;
+        }
+        long pos = ftell(f);
+        if (pos < 0 || (size_t)pos > CONFIG_UPLOAD_MAX_BYTES) {
+            fclose(f);
+            unlink(filepath);
+            httpd_resp_set_status(req, "413 Payload Too Large");
+            httpd_resp_send(req, "Payload too large", HTTPD_RESP_USE_STRLEN);
             return ESP_FAIL;
         }
         remaining -= received;
