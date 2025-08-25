@@ -71,6 +71,16 @@ The connection between ESP Board and the LCD is as follows:
 * Read BMP files from the SD card and display on the screen.
 * Use the touchscreen to switch between images.
 
+### Image size limitations
+
+The decoders operate with a single line buffer (`UWORD row[width]`), so images must fit within the display geometry:
+
+* Maximum width: **1024 px** (`LCD_H_RES`)
+* Maximum height: **600 px** (`LCD_V_RES`)
+* Recommended file size: **< 5&nbsp;MB** to keep decode time and SD transfers reasonable
+
+Larger images or heavier files may fail to render or overflow the line buffers.
+
 ### Configure the Project
 
 ### Build and Flash

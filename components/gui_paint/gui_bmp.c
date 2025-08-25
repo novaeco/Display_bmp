@@ -14,6 +14,7 @@
 #include "gui_bmp.h"
 #include <string.h>
 #include "esp_timer.h"
+#include "config.h"
 
 // Global palette storage populated when reading the BMP file
 static RGBQUAD RGBPAD[256];
@@ -130,6 +131,14 @@ UBYTE GUI_ReadBmp(UWORD Xstart, UWORD Ystart, const char *path) {
     fread(&bmpFileHeader, sizeof(BMPFILEHEADER), 1, fp);
     fread(&bmpInfoHeader, sizeof(BMPINF), 1, fp);
 
+    if (bmpInfoHeader.bWidth > LCD_H_RES || bmpInfoHeader.bHeight > LCD_V_RES ||
+        Xstart + bmpInfoHeader.bWidth > Paint.Width ||
+        Ystart + bmpInfoHeader.bHeight > Paint.Height) {
+        Debug("GUI_ReadBmp: image too big %u x %u\n", bmpInfoHeader.bWidth, bmpInfoHeader.bHeight);
+        fclose(fp);
+        return 0;
+    }
+
     // Read the color palette if present
     if (bmpInfoHeader.bBitCount <= 8) {
         uint32_t palette_count = bmpInfoHeader.bClrUsed ? bmpInfoHeader.bClrUsed : (1U << bmpInfoHeader.bBitCount);
@@ -141,31 +150,19 @@ UBYTE GUI_ReadBmp(UWORD Xstart, UWORD Ystart, const char *path) {
 
     // Compute the row size and allocate a buffer for one row
     int row_bytes = ((bmpInfoHeader.bWidth * bmpInfoHeader.bBitCount + 31) / 32) * 4;
-    UBYTE *row_buffer = malloc(row_bytes);
-    if (!row_buffer) {
-        Debug("Memory allocation failed\n");
-        fclose(fp);
-        return 0;
-    }
+    UBYTE row_buffer[row_bytes];
 
     printf("bBitCount = %d\n", bmpInfoHeader.bBitCount);  // Print the number of bits per pixel
 
     // Seek to the beginning of the pixel data
     fseek(fp, bmpFileHeader.bOffset, SEEK_SET);
 
-    UWORD *row_565 = malloc(bmpInfoHeader.bWidth * sizeof(UWORD));
-    if (!row_565) {
-        free(row_buffer);
-        fclose(fp);
-        return 0;
-    }
+    UWORD row_565[bmpInfoHeader.bWidth];
 
     int64_t start_time = esp_timer_get_time();
 
     for (int row = 0; row < bmpInfoHeader.bHeight; row++) {
         if (fread(row_buffer, row_bytes, 1, fp) != 1) {
-            free(row_buffer);
-            free(row_565);
             fclose(fp);
             return 0;
         }
@@ -196,8 +193,6 @@ UBYTE GUI_ReadBmp(UWORD Xstart, UWORD Ystart, const char *path) {
     int64_t end_time = esp_timer_get_time();
     printf("GUI_ReadBmp render time: %lld us\n", (long long)(end_time - start_time));
 
-    free(row_buffer);
-    free(row_565);
     fclose(fp);
     return 1;  // Return success
 }
