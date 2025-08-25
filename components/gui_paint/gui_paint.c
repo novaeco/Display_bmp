@@ -453,7 +453,7 @@ parameter:
     Color_Background : Select the background color
 ******************************************************************************/
 void Paint_DrawChar(UWORD Xpoint, UWORD Ypoint, const char Acsii_Char,
-                    sFONT* Font, UWORD Color_Foreground, UWORD Color_Background)
+                    const sFONT *Font, UWORD Color_Foreground, UWORD Color_Background)
 {
     UWORD Page, Column;
 
@@ -501,8 +501,8 @@ parameter:
     Color_Foreground : Select the foreground color
     Color_Background : Select the background color
 ******************************************************************************/
-void Paint_DrawString_EN(UWORD Xstart, UWORD Ystart, const char * pString,
-                         sFONT* Font, UWORD Color_Foreground, UWORD Color_Background)
+void Paint_DrawString_EN(UWORD Xstart, UWORD Ystart, const char *pString,
+                         const sFONT *Font, UWORD Color_Foreground, UWORD Color_Background)
 {
     UWORD Xpoint = Xstart;
     UWORD Ypoint = Ystart;
