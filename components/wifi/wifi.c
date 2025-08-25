@@ -18,6 +18,10 @@
 #include "esp_mac.h"
 #include <stdio.h>
 
+#ifndef CONFIG_WIFI_PROV_TIMEOUT_MS
+#define CONFIG_WIFI_PROV_TIMEOUT_MS 60000
+#endif
+
 static const char *TAG = "wifi";
 
 static EventGroupHandle_t s_wifi_event_group;
