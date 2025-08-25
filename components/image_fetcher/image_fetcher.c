@@ -20,6 +20,15 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
         esp_http_client_cleanup(client);
         return err;
     }
+
+    int content_length = esp_http_client_fetch_headers(client);
+    int status = esp_http_client_get_status_code(client);
+    if (content_length <= 0 || status != 200) {
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
     FILE *f = fopen(dest_path, "wb");
     if (!f) {
         esp_http_client_close(client);
@@ -28,12 +37,20 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
     }
     uint8_t buf[512];
     int data_read;
+    int total_read = 0;
     while ((data_read = esp_http_client_read(client, (char *)buf, sizeof(buf))) > 0) {
         fwrite(buf, 1, data_read, f);
+        total_read += data_read;
     }
     fclose(f);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
+
+    if (total_read != content_length) {
+        remove(dest_path);
+        return ESP_FAIL;
+    }
+
     ESP_LOGI(TAG, "Downloaded %s to %s", url, dest_path);
     return ESP_OK;
 }
@@ -55,7 +72,8 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
         return err;
     }
     int content_length = esp_http_client_fetch_headers(client);
-    if (content_length <= 0) {
+    int status = esp_http_client_get_status_code(client);
+    if (content_length <= 0 || status != 200) {
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
         return ESP_FAIL;
