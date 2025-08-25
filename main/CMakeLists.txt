@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main.c"
+    SRCS "main.c" "file_manager.c" "ui_navigation.c" "touch_task.c"
     INCLUDE_DIRS "."
     REQUIRES config rgb_lcd_port gui_paint touch sd battery
     WHOLE_ARCHIVE
