@@ -7,12 +7,18 @@
 #include "config.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "esp_log.h"
 #include <string.h>
 #include <stdio.h>
 
 extern UBYTE *BlackImage;
 extern const display_geometry_t g_display;
 extern char g_base_path[];
+
+static float s_zoom_level = 1.0f;
+static int16_t s_scroll_x = 0;
+static int16_t s_scroll_y = 0;
+static const char *TAG_NAV = "NAV";
 
 static inline void orient_coords(uint16_t *x, uint16_t *y)
 {
@@ -277,11 +283,10 @@ nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pr
 {
     touch_gt911_point_t point_data;
     static enum { NAV_HL_NONE, NAV_HL_LEFT, NAV_HL_RIGHT } nav_hl = NAV_HL_NONE;
+    static uint32_t prev_dist_sq = 0;
+    static uint16_t prev_cx = 0, prev_cy = 0;
     if (xQueueReceive(s_touch_queue, &point_data, pdMS_TO_TICKS(50)) != pdTRUE) {
         return NAV_NONE;
-    }
-    if (point_data.cnt == 2) {
-        return NAV_EXIT;
     }
     if (point_data.cnt == 0) {
         if (nav_hl == NAV_HL_LEFT) {
@@ -295,6 +300,46 @@ nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pr
         nav_hl = NAV_HL_NONE;
         *prev_x = 0;
         *prev_y = 0;
+        prev_dist_sq = 0;
+        prev_cx = 0;
+        prev_cy = 0;
+        return NAV_NONE;
+    }
+    if (point_data.cnt >= 2) {
+        uint16_t tx1 = point_data.x[0];
+        uint16_t ty1 = point_data.y[0];
+        uint16_t tx2 = point_data.x[1];
+        uint16_t ty2 = point_data.y[1];
+        orient_coords(&tx1, &ty1);
+        orient_coords(&tx2, &ty2);
+        uint32_t dx = (tx1 > tx2) ? tx1 - tx2 : tx2 - tx1;
+        uint32_t dy = (ty1 > ty2) ? ty1 - ty2 : ty2 - ty1;
+        uint32_t dist_sq = dx * dx + dy * dy;
+        uint16_t cx = (tx1 + tx2) / 2;
+        uint16_t cy = (ty1 + ty2) / 2;
+        if (prev_dist_sq != 0) {
+            int32_t diff = (int32_t)dist_sq - (int32_t)prev_dist_sq;
+            if (diff > 1000 || diff < -1000) {
+                s_zoom_level += (diff > 0) ? 0.1f : -0.1f;
+                prev_dist_sq = dist_sq;
+                ESP_LOGI(TAG_NAV, "Zoom niveau: %.2f", s_zoom_level);
+                return (diff > 0) ? NAV_ZOOM_IN : NAV_ZOOM_OUT;
+            }
+            int16_t dcx = (int16_t)cx - (int16_t)prev_cx;
+            int16_t dcy = (int16_t)cy - (int16_t)prev_cy;
+            if (dcx > 10 || dcx < -10 || dcy > 10 || dcy < -10) {
+                s_scroll_x += dcx;
+                s_scroll_y += dcy;
+                prev_cx = cx;
+                prev_cy = cy;
+                ESP_LOGI(TAG_NAV, "Défilement: %d,%d", s_scroll_x, s_scroll_y);
+                return NAV_SCROLL;
+            }
+        } else {
+            prev_dist_sq = dist_sq;
+            prev_cx = cx;
+            prev_cy = cy;
+        }
         return NAV_NONE;
     }
     if (point_data.cnt != 1) {
