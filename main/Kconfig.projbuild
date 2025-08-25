@@ -222,10 +222,4 @@ menu "Network options"
     config IMAGE_FETCH_URL
         string "Remote BMP URL"
         default "http://example.com/image.bmp"
-    config IMAGE_FETCH_INSECURE
-        bool "Allow insecure image fetch (skip TLS cert validation)"
-        default n
-        help
-            Enable this option to bypass TLS certificate validation when fetching images over HTTPS.
-            Use only for testing with self-signed certificates.
 endmenu
