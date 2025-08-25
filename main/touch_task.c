@@ -25,7 +25,7 @@ static void touch_task(void *arg)
     touch_gt911_point_t data;
     while (1) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        data = touch_gt911_read_point(1);
+        data = touch_gt911_read_point(5);
         xQueueSend(s_touch_queue, &data, portMAX_DELAY);
     }
 }
