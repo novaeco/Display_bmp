@@ -1,7 +1,4 @@
 dependencies:
   idf:
     version: ">=5.1.0"
-  idf::esp_http_server:
-
-
-
+  esp_http_server: "*"
