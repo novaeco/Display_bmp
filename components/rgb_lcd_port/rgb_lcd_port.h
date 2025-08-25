@@ -19,7 +19,6 @@
 
 #include "esp_log.h"
 #include "esp_heap_caps.h"
-#include "io_extension.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_lcd_panel_ops.h"
@@ -84,7 +83,7 @@
  * @brief Reset and Backlight Configuration
  */
 #define EXAMPLE_LCD_IO_RST              (-1)   ///< Reset pin, -1 if not used
-#define EXAMPLE_PIN_NUM_BK_LIGHT        (-1)   ///< Backlight pin, -1 if not used
+#define EXAMPLE_PIN_NUM_BK_LIGHT        (GPIO_NUM_16)   ///< Backlight pin (EXIO2)
 #define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL   (1)    ///< Logic level to turn on backlight
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL  (!EXAMPLE_LCD_BK_LIGHT_ON_LEVEL) ///< Logic level to turn off backlight
 
@@ -101,6 +100,11 @@ void wavesahre_rgb_lcd_bl_on();
  * @brief Turn off the LCD backlight.
  */
 void wavesahre_rgb_lcd_bl_off();
+
+/**
+ * @brief Set RGB LCD backlight brightness (0-100%).
+ */
+void waveshare_rgb_lcd_set_brightness(uint8_t level);
 
 /**
  * @brief Display a rectangular region of an image on the RGB LCD.
