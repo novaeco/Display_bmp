@@ -5,7 +5,7 @@
 #include "freertos/queue.h"
 #include "string.h"
 #include "ui_navigation.h"
-#include "touch/gt911.h"
+#include "gt911.h"
 #include "config.h"
 #include "esp_log.h"
 
