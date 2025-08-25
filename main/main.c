@@ -25,6 +25,8 @@
 #include "pm.h"
 #include "can_display.h"
 #include "rs485_display.h"
+#include "gui.h"
+#include "lvgl.h"
 #include "http_server.h"
 #include "esp_netif.h"
 #include "lwip/inet.h"
@@ -105,6 +107,7 @@ static bool init_peripherals(void)
     waveshare_rgb_lcd_bl_on();
     waveshare_rgb_lcd_set_brightness(100);
     battery_init();
+    gui_init(panel);
 
     if (can_display_init() != ESP_OK) {
         ESP_LOGE(TAG, "Échec d'initialisation du module CAN");
@@ -193,7 +196,6 @@ void app_main(void)
 
     wifi_manager_register_callback(wifi_status_cb);
 
-    app_state_t state = APP_STATE_SOURCE_SELECTION;
     const char *selected_dir = NULL;
     image_source_t img_src = IMAGE_SOURCE_LOCAL;
     int8_t index = 0;
@@ -204,6 +206,7 @@ void app_main(void)
         switch (state) {  
         case APP_STATE_SOURCE_SELECTION:
             img_src = draw_source_selection();
+            lv_obj_clean(lv_scr_act());
             if (img_src == IMAGE_SOURCE_REMOTE) {
                 s_wifi_ready = false;
                 s_wifi_failed = false;
@@ -217,7 +220,7 @@ void app_main(void)
                     UWORD err_x = g_display.width / TEXT_X_DIVISOR;
                     UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
                     Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED, WHITE);
-                    waveshare_rgb_lcd_display(BlackImage);
+                    
                     state = APP_STATE_ERROR;
                     break;
                 }
@@ -229,11 +232,11 @@ void app_main(void)
                     UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
                     UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR);
                     Paint_DrawString_EN(nofile_x, nofile_y, "Aucune image distante.", &Font24, RED, WHITE);
-                    waveshare_rgb_lcd_display(BlackImage);
+                    
                     state = APP_STATE_ERROR;
                 } else {
                     draw_navigation_arrows();
-                    waveshare_rgb_lcd_display(BlackImage);
+                    
                     state = APP_STATE_NAVIGATION;
                 }
             } else if (img_src == IMAGE_SOURCE_NETWORK) {
@@ -256,14 +259,13 @@ void app_main(void)
                             snprintf(url, sizeof(url), "http://%s", ip_str);
                             UWORD msg_x = g_display.width / TEXT_X_DIVISOR;
                             UWORD msg_y = g_display.height / TEXT_Y1_DIVISOR;
-                            Paint_Clear(WHITE);
+                            lv_obj_clean(lv_scr_act());
                             Paint_DrawString_EN(msg_x, msg_y, "Upload BMP via:", &Font24, BLACK, WHITE);
                             Paint_DrawString_EN(msg_x, msg_y + TEXT_LINE_SPACING, url, &Font24, BLACK, WHITE);
-                            waveshare_rgb_lcd_display(BlackImage);
+                            
                         }
                     }
                 }
-                state = APP_STATE_SOURCE_SELECTION;
             } else {
                 state = APP_STATE_FOLDER_SELECTION;
             }
@@ -285,29 +287,36 @@ void app_main(void)
                 UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;  
                 UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR) + 3 * TEXT_LINE_SPACING;  
                 Paint_DrawString_EN(nofile_x, nofile_y, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);  
-                waveshare_rgb_lcd_display(BlackImage);  
+                  
                 app_cleanup();  
                 state = APP_STATE_ERROR;  
             } else {  
                 draw_navigation_arrows();  
-                waveshare_rgb_lcd_display(BlackImage);  
+                  
                 state = APP_STATE_NAVIGATION;  
             }  
             break;  
 
-        case APP_STATE_NAVIGATION: {  
-            nav_action_t act = handle_touch_navigation(&index, &prev_x, &prev_y);  
-            if (act == NAV_EXIT) {  
-                state = APP_STATE_EXIT;  
-            } else if (act == NAV_HOME) {  
+        case APP_STATE_NAVIGATION: {
+            nav_action_t act = handle_touch_navigation(&index, &prev_x, &prev_y);
+            if (act == NAV_EXIT) {
+                state = APP_STATE_EXIT;
+            } else if (act == NAV_HOME) {
                 bmp_list_free();
                 index = 0;
                 prev_x = 0;
                 prev_y = 0;
                 selected_dir = NULL;
-                Paint_Clear(WHITE);
-                waveshare_rgb_lcd_display(BlackImage);
+                lv_obj_clean(lv_scr_act());
                 state = APP_STATE_SOURCE_SELECTION;
+            } else if (act == NAV_SCROLL) {
+                if (index >= bmp_list.size) index = 0;
+                else if (index < 0) index = bmp_list.size - 1;
+                Paint_Clear(WHITE);
+                GUI_ReadBmp(0, 0, bmp_list.items[index]);
+                waveshare_rgb_lcd_display(BlackImage);
+                lv_obj_clean(lv_scr_act());
+                draw_navigation_arrows();
             }
             break;
         }

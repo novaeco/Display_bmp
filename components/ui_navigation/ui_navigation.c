@@ -9,6 +9,7 @@
 #include "sd.h"
 #include "gt911.h"
 #include "freertos/FreeRTOS.h"
+#include "lvgl.h"
 #include "freertos/queue.h"
 #include "esp_log.h"
 #include <string.h>
@@ -44,6 +45,7 @@ static void draw_folder_button(UWORD x0, UWORD y0, UWORD x1, UWORD y1,
                        label, &Font24, BLACK, bg_color);
 }
 
+#if 0
 image_source_t draw_source_selection(void)
 {
     touch_gt911_point_t point_data;
@@ -162,6 +164,7 @@ image_source_t draw_source_selection(void)
     }
 }
 
+#endif
 void draw_orientation_menu(void)
 {
     touch_gt911_point_t point_data;
@@ -310,6 +313,7 @@ const char *draw_folder_selection(void)
     return selected_dir;
 }
 
+#if 0
 static void draw_left_arrow(void)
 {
     Paint_DrawRectangle(NAV_MARGIN, NAV_MARGIN,
@@ -508,3 +512,98 @@ nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pr
     }
     return NAV_NONE;
 }
+#endif
+
+static QueueHandle_t s_nav_queue;
+static volatile int s_src_choice = -1;
+
+static void source_btn_cb(lv_event_t *e)
+{
+    s_src_choice = (int)lv_event_get_user_data(e);
+}
+
+static void nav_btn_cb(lv_event_t *e)
+{
+    int8_t dir = (int8_t)(intptr_t)lv_event_get_user_data(e);
+    if (s_nav_queue) {
+        xQueueSend(s_nav_queue, &dir, 0);
+    }
+}
+
+image_source_t draw_source_selection(void)
+{
+    s_src_choice = -1;
+    lv_obj_t *scr = lv_obj_create(NULL);
+
+    UWORD btnL_x0 = g_display.margin_left;
+    UWORD btnL_y0 = (g_display.height - BTN_HEIGHT) / 2;
+    UWORD btnR_x1 = g_display.width - g_display.margin_right;
+    UWORD btnR_x0 = btnR_x1 - BTN_WIDTH;
+    UWORD btnR_y0 = btnL_y0;
+    UWORD btnN_x0 = (g_display.width - BTN_WIDTH) / 2;
+    UWORD btnN_y0 = btnL_y0 + BTN_HEIGHT + NAV_MARGIN;
+
+    lv_obj_t *btn_local = lv_btn_create(scr);
+    lv_obj_set_size(btn_local, BTN_WIDTH, BTN_HEIGHT);
+    lv_obj_set_pos(btn_local, btnL_x0, btnL_y0);
+    lv_obj_add_event_cb(btn_local, source_btn_cb, LV_EVENT_CLICKED, (void*)IMAGE_SOURCE_LOCAL);
+    lv_obj_t *lbl_local = lv_label_create(btn_local);
+    lv_label_set_text(lbl_local, "Locales");
+
+    lv_obj_t *btn_remote = lv_btn_create(scr);
+    lv_obj_set_size(btn_remote, BTN_WIDTH, BTN_HEIGHT);
+    lv_obj_set_pos(btn_remote, btnR_x0, btnR_y0);
+    lv_obj_add_event_cb(btn_remote, source_btn_cb, LV_EVENT_CLICKED, (void*)IMAGE_SOURCE_REMOTE);
+    lv_obj_t *lbl_remote = lv_label_create(btn_remote);
+    lv_label_set_text(lbl_remote, "Distantes");
+
+    lv_obj_t *btn_net = lv_btn_create(scr);
+    lv_obj_set_size(btn_net, BTN_WIDTH, BTN_HEIGHT);
+    lv_obj_set_pos(btn_net, btnN_x0, btnN_y0);
+    lv_obj_add_event_cb(btn_net, source_btn_cb, LV_EVENT_CLICKED, (void*)IMAGE_SOURCE_NETWORK);
+    lv_obj_t *lbl_net = lv_label_create(btn_net);
+    lv_label_set_text(lbl_net, "Source reseau");
+
+    lv_scr_load(scr);
+    while (s_src_choice == -1) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    return (image_source_t)s_src_choice;
+}
+
+void draw_navigation_arrows(void)
+{
+    if (!s_nav_queue) {
+        s_nav_queue = xQueueCreate(5, sizeof(int8_t));
+    } else {
+        xQueueReset(s_nav_queue);
+    }
+    lv_obj_t *scr = lv_scr_act();
+    lv_obj_t *btn_left = lv_btn_create(scr);
+    lv_obj_set_size(btn_left, ARROW_WIDTH, ARROW_HEIGHT);
+    lv_obj_set_pos(btn_left, g_display.margin_left, (g_display.height - ARROW_HEIGHT)/2);
+    lv_obj_add_event_cb(btn_left, nav_btn_cb, LV_EVENT_CLICKED, (void*)(intptr_t)-1);
+    lv_obj_t *lbl_left = lv_label_create(btn_left);
+    lv_label_set_text(lbl_left, "<");
+
+    lv_obj_t *btn_right = lv_btn_create(scr);
+    lv_obj_set_size(btn_right, ARROW_WIDTH, ARROW_HEIGHT);
+    lv_obj_set_pos(btn_right, g_display.width - g_display.margin_right - ARROW_WIDTH,
+                   (g_display.height - ARROW_HEIGHT)/2);
+    lv_obj_add_event_cb(btn_right, nav_btn_cb, LV_EVENT_CLICKED, (void*)(intptr_t)1);
+    lv_obj_t *lbl_right = lv_label_create(btn_right);
+    lv_label_set_text(lbl_right, ">");
+}
+
+nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
+{
+    int8_t dir;
+    if (s_nav_queue && xQueueReceive(s_nav_queue, &dir, pdMS_TO_TICKS(50)) == pdTRUE) {
+        *idx += dir;
+        return NAV_SCROLL;
+    }
+    return NAV_NONE;
+}
+
+void draw_filename_bar(const char *path) {}
+

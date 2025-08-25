@@ -4,7 +4,7 @@ idf_component_register(
     REQUIRES
         config
         rgb_lcd_port
-        gui_paint
+        gui_paint gui
         touch
         ui_navigation
         sd
