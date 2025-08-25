@@ -33,7 +33,6 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
         return ESP_FAIL;
     }
     esp_http_client_set_header(client, "Connection", "keep-alive");
-    esp_http_client_set_keep_alive(client, true);
     esp_err_t err = esp_http_client_open(client, 0);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "HTTP open failed: %s", esp_err_to_name(err));
@@ -55,8 +54,8 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
         return ESP_ERR_HTTP_STATUS;
     }
 
-    const char *hash_hex = esp_http_client_get_header(client, SHA256_HEADER);
-    if (!hash_hex) {
+    char *hash_hex = NULL;
+    if (esp_http_client_get_header(client, SHA256_HEADER, &hash_hex) != ESP_OK || !hash_hex) {
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
         return ESP_ERR_INVALID_RESPONSE;
@@ -139,7 +138,6 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
         return ESP_FAIL;
     }
     esp_http_client_set_header(client, "Connection", "keep-alive");
-    esp_http_client_set_keep_alive(client, true);
     esp_err_t err = esp_http_client_open(client, 0);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "HTTP open failed: %s", esp_err_to_name(err));
@@ -160,8 +158,8 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
         return ESP_ERR_HTTP_STATUS;
     }
 
-    const char *hash_hex = esp_http_client_get_header(client, SHA256_HEADER);
-    if (!hash_hex || strlen(hash_hex) != 64) {
+    char *hash_hex = NULL;
+    if (esp_http_client_get_header(client, SHA256_HEADER, &hash_hex) != ESP_OK || !hash_hex || strlen(hash_hex) != 64) {
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
         return ESP_ERR_INVALID_RESPONSE;
