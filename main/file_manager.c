@@ -26,7 +26,7 @@ static esp_err_t bmp_list_append(bmp_list_t *list, char *path)
 {
     if (list->size == list->capacity) {
         size_t new_cap = list->capacity ? list->capacity * 2 : BMP_LIST_INIT_CAP;
-        char **tmp = esp_heap_caps_realloc(list->items, new_cap * sizeof(char *), MALLOC_CAP_DEFAULT);
+        char **tmp = heap_caps_realloc(list->items, new_cap * sizeof(char *), MALLOC_CAP_DEFAULT);
         if (tmp == NULL) {
             return ESP_ERR_NO_MEM;
         }
@@ -58,7 +58,7 @@ esp_err_t list_files_sorted(const char *base_path, size_t start_idx)
         if (len > 4 && strcasecmp(&file_name[len - 4], ".bmp") == 0) {
             if (names_size == names_cap) {
                 size_t new_cap = names_cap ? names_cap * 2 : BMP_LIST_INIT_CAP;
-                char **tmp = esp_heap_caps_realloc(names, new_cap * sizeof(char *), MALLOC_CAP_DEFAULT);
+                char **tmp = heap_caps_realloc(names, new_cap * sizeof(char *), MALLOC_CAP_DEFAULT);
                 if (tmp == NULL) {
                     bmp_has_more = true;
                     ret = ESP_ERR_NO_MEM;
@@ -67,7 +67,7 @@ esp_err_t list_files_sorted(const char *base_path, size_t start_idx)
                 names = tmp;
                 names_cap = new_cap;
             }
-            names[names_size] = esp_heap_caps_calloc(len + 1, sizeof(char), MALLOC_CAP_DEFAULT);
+            names[names_size] = heap_caps_calloc(len + 1, sizeof(char), MALLOC_CAP_DEFAULT);
             if (names[names_size] == NULL) {
                 bmp_has_more = true;
                 ret = ESP_ERR_NO_MEM;
@@ -91,7 +91,7 @@ esp_err_t list_files_sorted(const char *base_path, size_t start_idx)
 
     for (size_t i = start_idx; i < names_size; ++i) {
         size_t length = strlen(base_path) + strlen(names[i]) + 2;
-        char *full_path = esp_heap_caps_calloc(length, sizeof(char), MALLOC_CAP_DEFAULT);
+        char *full_path = heap_caps_calloc(length, sizeof(char), MALLOC_CAP_DEFAULT);
         if (full_path == NULL) {
             bmp_has_more = true;
             ret = ESP_ERR_NO_MEM;
