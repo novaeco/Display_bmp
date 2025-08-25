@@ -51,4 +51,12 @@ config WIFI_PROV_TIMEOUT_MS
     int "WiFi provisioning timeout (ms)"
     default 60000
 
+config UPLOAD_MAX_BYTES
+    int "Maximum upload size (bytes)"
+    default 1048576
+
+config UPLOAD_AUTH_TOKEN
+    string "Upload Authorization token"
+    default ""
+
 endmenu
