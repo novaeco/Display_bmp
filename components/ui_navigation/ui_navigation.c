@@ -222,7 +222,8 @@ const char *draw_folder_selection(void)
     }
     const char *selected_dir = s_folder_choice;
 
-    lv_obj_clean(scr);
+    lv_scr_load(NULL);           // unload selection screen to avoid it remaining active
+    lv_obj_del(scr);             // delete screen object to prevent RAM accumulation
 
     for (size_t i = 0; i < fl.count; ++i) {
         if (fl.names[i] != selected_dir) {
