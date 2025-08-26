@@ -422,10 +422,6 @@ esp_err_t touch_gt911_init(esp_lcd_touch_handle_t *out_touch)
     ret = esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, &tp_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "GT911 init failed: %s", esp_err_to_name(ret));
-        if (tp_handle) {
-            esp_lcd_touch_gt911_del(tp_handle);
-            tp_handle = NULL;
-        }
         if (tp_io_handle) {
             esp_lcd_panel_io_del(tp_io_handle);
             tp_io_handle = NULL;
