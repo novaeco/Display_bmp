@@ -341,5 +341,11 @@ void ui_navigation_deinit(void)
         vQueueDelete(s_nav_queue);
         s_nav_queue = NULL;
     }
+
+    if (s_fname_bar) {
+        lv_obj_del(s_fname_bar);
+    }
+    s_fname_bar = NULL;
+    s_fname_label = NULL;
 }
 
