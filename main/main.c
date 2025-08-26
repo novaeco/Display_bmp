@@ -262,22 +262,34 @@ void app_main(void)
                             vTaskDelay(pdMS_TO_TICKS(100));
                             wait_ms -= 100;
                         }
-                        if (s_wifi_ready) {
-                            if (start_file_server() == ESP_OK) {
-                                esp_netif_ip_info_t ip;
-                                esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-                                if (netif && esp_netif_get_ip_info(netif, &ip) == ESP_OK) {
-                                    char ip_str[IP4ADDR_STRLEN_MAX];
-                                    ip4addr_ntoa_r((ip4_addr_t *)&ip.ip, ip_str, sizeof(ip_str));
-                                    char url[32];
-                                    snprintf(url, sizeof(url), "http://%s", ip_str);
-                                    UWORD msg_x = g_display.width / TEXT_X_DIVISOR;
-                                    UWORD msg_y = g_display.height / TEXT_Y1_DIVISOR;
-                                    lv_obj_clean(lv_scr_act());
-                                    Paint_DrawString_EN(msg_x, msg_y, "Upload BMP via:", &Font24, BLACK, WHITE);
-                                    Paint_DrawString_EN(msg_x, msg_y + TEXT_LINE_SPACING, url, &Font24, BLACK, WHITE);
-                                    state = APP_STATE_NAVIGATION;
-                                }
+                        if (!s_wifi_ready || s_wifi_failed) {
+                            UWORD err_x = g_display.width / TEXT_X_DIVISOR;
+                            UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
+                            Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED, WHITE);
+                            wifi_manager_stop();
+                            stop_file_server();
+                            state = APP_STATE_SOURCE_SELECTION;
+                        } else if (start_file_server() != ESP_OK) {
+                            UWORD err_x = g_display.width / TEXT_X_DIVISOR;
+                            UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
+                            Paint_DrawString_EN(err_x, err_y, "Échec serveur.", &Font24, RED, WHITE);
+                            wifi_manager_stop();
+                            stop_file_server();
+                            state = APP_STATE_SOURCE_SELECTION;
+                        } else {
+                            esp_netif_ip_info_t ip;
+                            esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+                            if (netif && esp_netif_get_ip_info(netif, &ip) == ESP_OK) {
+                                char ip_str[IP4ADDR_STRLEN_MAX];
+                                ip4addr_ntoa_r((ip4_addr_t *)&ip.ip, ip_str, sizeof(ip_str));
+                                char url[32];
+                                snprintf(url, sizeof(url), "http://%s", ip_str);
+                                UWORD msg_x = g_display.width / TEXT_X_DIVISOR;
+                                UWORD msg_y = g_display.height / TEXT_Y1_DIVISOR;
+                                lv_obj_clean(lv_scr_act());
+                                Paint_DrawString_EN(msg_x, msg_y, "Upload BMP via:", &Font24, BLACK, WHITE);
+                                Paint_DrawString_EN(msg_x, msg_y + TEXT_LINE_SPACING, url, &Font24, BLACK, WHITE);
+                                state = APP_STATE_NAVIGATION;
                             }
                         }
                     } else {
