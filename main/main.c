@@ -89,6 +89,7 @@ static void app_cleanup(void)
     bmp_list_free();
     free(BlackImage);
     BlackImage = NULL;
+    gui_deinit();
 }
 
 static bool init_peripherals(void)
