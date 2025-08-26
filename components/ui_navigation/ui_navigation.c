@@ -81,6 +81,22 @@ void draw_orientation_menu(void)
             if (point_data.cnt == 0) {
                 continue;
             }
+            if (point_data.cnt == 2) {
+                Paint_Clear(WHITE);
+                Paint_DrawString_EN(text_x, text_y1, "Double touche detectee", &Font24, BLACK, WHITE);
+                Paint_DrawString_EN(text_x, text_y2, "Reessayer", &Font24, BLACK, WHITE);
+                waveshare_rgb_lcd_display(BlackImage);
+                vTaskDelay(pdMS_TO_TICKS(2000));
+                Paint_Clear(WHITE);
+                Paint_DrawString_EN(text_x, text_y1, "Orientation :", &Font24, BLACK, WHITE);
+                Paint_DrawString_EN(text_x, text_y2, "Choisissez :", &Font24, BLACK, WHITE);
+                draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
+                                   "Paysage", BTN_LABEL_L_OFFSET_X, WHITE);
+                draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
+                                   "Portrait", BTN_LABEL_R_OFFSET_X, WHITE);
+                waveshare_rgb_lcd_display(BlackImage);
+                continue;
+            }
             uint16_t tx = point_data.x[0];
             uint16_t ty = point_data.y[0];
             orient_coords(&tx, &ty);
