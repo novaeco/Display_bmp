@@ -12,11 +12,21 @@
 #include "lvgl.h"
 #include "freertos/queue.h"
 #include <string.h>
+#include <strings.h>
+#include <stdlib.h>
+#include <dirent.h>
+#include <limits.h>
 #include "esp_log.h"
 
 extern UBYTE *BlackImage;
 extern display_geometry_t g_display;
 extern char g_base_path[];
+
+static const char *s_folder_choice = NULL;
+static void folder_label_cb(lv_event_t *e)
+{
+    s_folder_choice = (const char *)lv_event_get_user_data(e);
+}
 
 static inline void orient_coords(uint16_t *x, uint16_t *y)
 {
@@ -92,95 +102,124 @@ void draw_orientation_menu(void)
 
 const char *draw_folder_selection(void)
 {
-    touch_gt911_point_t point_data;
-
     UWORD text_x = g_display.width / TEXT_X_DIVISOR;
     UWORD text_y1 = g_display.height / TEXT_Y1_DIVISOR;
     UWORD text_y2 = text_y1 + TEXT_LINE_SPACING;
 
-    Paint_DrawString_EN(text_x, text_y1, "Carte SD OK !", &Font24, BLACK, WHITE);
-    Paint_DrawString_EN(text_x, text_y2, "Choisissez un dossier :", &Font24, BLACK, WHITE);
+    s_folder_choice = NULL;
 
-    UWORD btnL_x0 = g_display.margin_left;
-    UWORD btnL_y0 = (g_display.height - BTN_HEIGHT) / 2;
-    UWORD btnL_x1 = btnL_x0 + BTN_WIDTH;
-    UWORD btnL_y1 = btnL_y0 + BTN_HEIGHT;
+    typedef struct {
+        char **names;
+        lv_obj_t **labels;
+        size_t count;
+        size_t cap;
+    } folder_list_t;
 
-    UWORD btnR_x1 = g_display.width - g_display.margin_right;
-    UWORD btnR_x0 = btnR_x1 - BTN_WIDTH;
-    UWORD btnR_y0 = btnL_y0;
-    UWORD btnR_y1 = btnL_y1;
+    folder_list_t fl = {0};
+    DIR *dir = opendir(MOUNT_POINT);
+    if (!dir) {
+        ESP_LOGE("NAV", "opendir %s failed", MOUNT_POINT);
+        return NULL;
+    }
 
-    draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
-                       "Reptiles", BTN_LABEL_L_OFFSET_X, WHITE);
-    draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
-                       "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type != DT_DIR) {
+            continue;
+        }
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
 
-    waveshare_rgb_lcd_display(BlackImage);
-
-    const char *selected_dir = NULL;
-    enum { HIGHLIGHT_NONE, HIGHLIGHT_LEFT, HIGHLIGHT_RIGHT } highlight = HIGHLIGHT_NONE;
-    while (selected_dir == NULL) {
-        if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) == pdTRUE) {
-            if (point_data.cnt == 2) {
-                return NULL;
+        char path[PATH_MAX];
+        snprintf(path, sizeof(path), "%s/%s", MOUNT_POINT, entry->d_name);
+        DIR *sub = opendir(path);
+        if (!sub) {
+            continue;
+        }
+        bool has_bmp = false;
+        struct dirent *e2;
+        while ((e2 = readdir(sub)) != NULL) {
+            if (e2->d_type != DT_REG) {
+                continue;
             }
-            if (point_data.cnt == 1) {
-                uint16_t tx = point_data.x[0];
-                uint16_t ty = point_data.y[0];
-                orient_coords(&tx, &ty);
-                if (tx >= btnL_x0 && tx <= btnL_x1 && ty >= btnL_y0 && ty <= btnL_y1) {
-                    if (highlight != HIGHLIGHT_LEFT) {
-                        if (highlight == HIGHLIGHT_RIGHT) {
-                            draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
-                                               "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
-                        }
-                        draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
-                                           "Reptiles", BTN_LABEL_L_OFFSET_X, GRAY);
-                        waveshare_rgb_lcd_display(BlackImage);
-                        highlight = HIGHLIGHT_LEFT;
-                    }
-                } else if (tx >= btnR_x0 && tx <= btnR_x1 && ty >= btnR_y0 && ty <= btnR_y1) {
-                    if (highlight != HIGHLIGHT_RIGHT) {
-                        if (highlight == HIGHLIGHT_LEFT) {
-                            draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
-                                               "Reptiles", BTN_LABEL_L_OFFSET_X, WHITE);
-                        }
-                        draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
-                                           "Presentation", BTN_LABEL_R_OFFSET_X, GRAY);
-                        waveshare_rgb_lcd_display(BlackImage);
-                        highlight = HIGHLIGHT_RIGHT;
-                    }
-                } else if (highlight != HIGHLIGHT_NONE) {
-                    if (highlight == HIGHLIGHT_LEFT) {
-                        draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
-                                           "Reptiles", BTN_LABEL_L_OFFSET_X, WHITE);
-                    } else {
-                        draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
-                                           "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
-                    }
-                    waveshare_rgb_lcd_display(BlackImage);
-                    highlight = HIGHLIGHT_NONE;
-                }
-            } else if (point_data.cnt == 0 && highlight != HIGHLIGHT_NONE) {
-                if (highlight == HIGHLIGHT_LEFT) {
-                    draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1,
-                                       "Reptiles", BTN_LABEL_L_OFFSET_X, WHITE);
-                    selected_dir = "Reptiles";
-                } else {
-                    draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1,
-                                       "Presentation", BTN_LABEL_R_OFFSET_X, WHITE);
-                    selected_dir = "Presentation";
-                }
-                waveshare_rgb_lcd_display(BlackImage);
-                highlight = HIGHLIGHT_NONE;
+            const char *ext = strrchr(e2->d_name, '.');
+            if (ext && strcasecmp(ext, ".bmp") == 0) {
+                has_bmp = true;
+                break;
             }
         }
+        closedir(sub);
+        if (!has_bmp) {
+            continue;
+        }
+
+        if (fl.count == fl.cap) {
+            size_t newcap = fl.cap ? fl.cap * 2 : 4;
+            char **newnames = realloc(fl.names, newcap * sizeof(char *));
+            lv_obj_t **newlabels = realloc(fl.labels, newcap * sizeof(lv_obj_t *));
+            if (!newnames || !newlabels) {
+                ESP_LOGE("NAV", "realloc failed");
+                closedir(dir);
+                for (size_t i = 0; i < fl.count; ++i) {
+                    free(fl.names[i]);
+                }
+                free(newnames);
+                free(newlabels);
+                return NULL;
+            }
+            fl.names = newnames;
+            fl.labels = newlabels;
+            fl.cap = newcap;
+        }
+        fl.names[fl.count++] = strdup(entry->d_name);
     }
+    closedir(dir);
+
+    if (fl.count == 0) {
+        free(fl.names);
+        free(fl.labels);
+        return NULL;
+    }
+
+    lv_obj_t *scr = lv_obj_create(NULL);
+    lv_obj_t *lbl_ok = lv_label_create(scr);
+    lv_label_set_text(lbl_ok, "Carte SD OK !");
+    lv_obj_set_pos(lbl_ok, text_x, text_y1);
+    lv_obj_t *lbl_choose = lv_label_create(scr);
+    lv_label_set_text(lbl_choose, "Choisissez un dossier :");
+    lv_obj_set_pos(lbl_choose, text_x, text_y2);
+
+    UWORD list_y = text_y2 + TEXT_LINE_SPACING;
+    for (size_t i = 0; i < fl.count; ++i) {
+        lv_obj_t *lbl = lv_label_create(scr);
+        lv_label_set_text(lbl, fl.names[i]);
+        lv_obj_set_pos(lbl, text_x, list_y + i * TEXT_LINE_SPACING);
+        lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_event_cb(lbl, folder_label_cb, LV_EVENT_CLICKED, fl.names[i]);
+        fl.labels[i] = lbl;
+    }
+
+    lv_scr_load(scr);
+    while (s_folder_choice == NULL) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    const char *selected_dir = s_folder_choice;
+
+    lv_obj_clean(scr);
+
+    for (size_t i = 0; i < fl.count; ++i) {
+        if (fl.names[i] != selected_dir) {
+            free(fl.names[i]);
+        }
+    }
+    free(fl.names);
+    free(fl.labels);
+    s_folder_choice = NULL;
 
     Paint_Clear(WHITE);
     Paint_DrawString_EN(text_x, text_y1, "Dossier choisi :", &Font24, BLACK, WHITE);
-    Paint_DrawString_EN(text_x, text_y2, (char *)selected_dir, &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(text_x, text_y2, selected_dir, &Font24, BLACK, WHITE);
     Paint_DrawString_EN(text_x, text_y2 + TEXT_LINE_SPACING, "Touchez la fleche pour demarrer.", &Font24, BLACK, WHITE);
     waveshare_rgb_lcd_display(BlackImage);
     return selected_dir;
