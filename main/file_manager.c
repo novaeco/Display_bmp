@@ -3,6 +3,7 @@
 #include <strings.h>
 #include <stdio.h>
 #include <limits.h>
+#include <stdlib.h>
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 
@@ -47,6 +48,20 @@ static void bmp_list_clear(void)
     bmp_list.capacity = 0;
 }
 
+static int bmp_path_cmp(const void *a, const void *b)
+{
+    const char *const *pa = a;
+    const char *const *pb = b;
+    return strcasecmp(*pa, *pb);
+}
+
+static void bmp_list_sort(void)
+{
+    if (bmp_list.size > 1) {
+        qsort(bmp_list.items, bmp_list.size, sizeof(char *), bmp_path_cmp);
+    }
+}
+
 static esp_err_t read_dir_page(size_t max_files)
 {
     if (!bmp_dir) {
@@ -83,6 +98,8 @@ static esp_err_t read_dir_page(size_t max_files)
     if (ret != ESP_OK) {
         return ret;
     }
+
+    bmp_list_sort();
 
     long pos = telldir(bmp_dir);
     bmp_has_more = false;
