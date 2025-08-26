@@ -75,9 +75,9 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     uint8_t hash[32];
     mbedtls_sha256_context ctx;
     mbedtls_sha256_init(&ctx);
-    int rc = mbedtls_sha256_starts_ret(&ctx, 0);
+    int rc = mbedtls_sha256_starts(&ctx, 0);
     if (rc != 0) {
-        ESP_LOGE(TAG, "mbedtls_sha256_starts_ret failed: %d", rc);
+        ESP_LOGE(TAG, "mbedtls_sha256_starts failed: %d", rc);
         mbedtls_sha256_free(&ctx);
         if (f) {
             fclose(f);
@@ -86,9 +86,9 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "hash fail");
         return ESP_FAIL;
     }
-    rc = mbedtls_sha256_update_ret(&ctx, (const unsigned char *)auth, strlen(auth));
+    rc = mbedtls_sha256_update(&ctx, (const unsigned char *)auth, strlen(auth));
     if (rc != 0) {
-        ESP_LOGE(TAG, "mbedtls_sha256_update_ret failed: %d", rc);
+        ESP_LOGE(TAG, "mbedtls_sha256_update failed: %d", rc);
         mbedtls_sha256_free(&ctx);
         if (f) {
             fclose(f);
@@ -97,10 +97,10 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "hash fail");
         return ESP_FAIL;
     }
-    rc = mbedtls_sha256_finish_ret(&ctx, hash);
+    rc = mbedtls_sha256_finish(&ctx, hash);
     mbedtls_sha256_free(&ctx);
     if (rc != 0) {
-        ESP_LOGE(TAG, "mbedtls_sha256_finish_ret failed: %d", rc);
+        ESP_LOGE(TAG, "mbedtls_sha256_finish failed: %d", rc);
         if (f) {
             fclose(f);
             unlink(filepath);
