@@ -398,6 +398,9 @@ esp_err_t touch_gt911_init(esp_lcd_touch_handle_t *out_touch)
 
     ESP_LOGI(TAG, "Initialize touch controller GT911");
     // Configure the touch controller with necessary settings (coordinates, GPIO pins, etc.)
+    static const esp_lcd_touch_io_gt911_config_t gt911_io_cfg = {
+        .dev_addr = ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS,
+    };
     const esp_lcd_touch_config_t tp_cfg = {
         .x_max = LCD_H_RES,  // Set the maximum X coordinate based on screen resolution
         .y_max = LCD_V_RES,  // Set the maximum Y coordinate based on screen resolution
@@ -412,6 +415,7 @@ esp_err_t touch_gt911_init(esp_lcd_touch_handle_t *out_touch)
             .mirror_x = 0,  // No mirroring of X axis
             .mirror_y = 0,  // No mirroring of Y axis
         },
+        .driver_data = &gt911_io_cfg,
     };
 
     // Create a new touch controller instance using the configured I2C and settings
