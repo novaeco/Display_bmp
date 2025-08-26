@@ -52,7 +52,7 @@ static int bmp_path_cmp(const void *a, const void *b)
 {
     const char *const *pa = a;
     const char *const *pb = b;
-    return strcasecmp(*pa, *pb);
+    return strcmp(*pa, *pb);
 }
 
 static void bmp_list_sort(void)
@@ -99,8 +99,6 @@ static esp_err_t read_dir_page(size_t max_files)
         return ret;
     }
 
-    bmp_list_sort();
-
     long pos = telldir(bmp_dir);
     bmp_has_more = false;
     while ((entry = readdir(bmp_dir)) != NULL) {
@@ -141,7 +139,11 @@ esp_err_t list_files_sorted(const char *base_path, size_t start_idx, size_t max_
     }
 
     bmp_page_start = start_idx;
-    return read_dir_page(max_files);
+    esp_err_t ret = read_dir_page(max_files);
+    if (ret == ESP_OK) {
+        bmp_list_sort();
+    }
+    return ret;
 }
 
 esp_err_t file_manager_next_page(size_t max_files)
@@ -152,7 +154,11 @@ esp_err_t file_manager_next_page(size_t max_files)
     size_t old_start = bmp_page_start;
     bmp_list_clear();
     bmp_page_start = old_start + bmp_last_page_size;
-    return read_dir_page(max_files);
+    esp_err_t ret = read_dir_page(max_files);
+    if (ret == ESP_OK) {
+        bmp_list_sort();
+    }
+    return ret;
 }
 
 void bmp_list_free(void)
