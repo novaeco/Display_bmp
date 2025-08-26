@@ -53,7 +53,8 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 
 static esp_err_t upload_post_handler(httpd_req_t *req)
 {
-    char filepath[128];
+    char filepath[128] = "";
+    FILE *f = NULL;
     const char *filename = req->uri + sizeof("/upload/") - 1;
     if (strlen(filename) == 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Filename required");
@@ -74,10 +75,39 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     uint8_t hash[32];
     mbedtls_sha256_context ctx;
     mbedtls_sha256_init(&ctx);
-    mbedtls_sha256_starts_ret(&ctx, 0);
-    mbedtls_sha256_update_ret(&ctx, (const unsigned char *)auth, strlen(auth));
-    mbedtls_sha256_finish_ret(&ctx, hash);
+    int rc = mbedtls_sha256_starts_ret(&ctx, 0);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "mbedtls_sha256_starts_ret failed: %d", rc);
+        mbedtls_sha256_free(&ctx);
+        if (f) {
+            fclose(f);
+            unlink(filepath);
+        }
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "hash fail");
+        return ESP_FAIL;
+    }
+    rc = mbedtls_sha256_update_ret(&ctx, (const unsigned char *)auth, strlen(auth));
+    if (rc != 0) {
+        ESP_LOGE(TAG, "mbedtls_sha256_update_ret failed: %d", rc);
+        mbedtls_sha256_free(&ctx);
+        if (f) {
+            fclose(f);
+            unlink(filepath);
+        }
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "hash fail");
+        return ESP_FAIL;
+    }
+    rc = mbedtls_sha256_finish_ret(&ctx, hash);
     mbedtls_sha256_free(&ctx);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "mbedtls_sha256_finish_ret failed: %d", rc);
+        if (f) {
+            fclose(f);
+            unlink(filepath);
+        }
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "hash fail");
+        return ESP_FAIL;
+    }
 
     if (memcmp(hash, upload_token_hash, sizeof(hash)) != 0) {
         httpd_resp_set_status(req, "401 Unauthorized");
@@ -124,7 +154,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     }
 
     snprintf(filepath, sizeof(filepath), "%s/upload/%s", MOUNT_POINT, clean_name);
-    FILE *f = fopen(filepath, "w");
+    f = fopen(filepath, "w");
     if (!f) {
         ESP_LOGE(TAG, "fopen failed: %s", filepath);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "open fail");
