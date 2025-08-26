@@ -40,6 +40,8 @@ static wifi_event_cb_t s_event_cb;
 static TaskHandle_t s_task_handle;
 static int s_retry_num;
 static bool s_fail_notified;
+static esp_event_handler_instance_t s_wifi_any_handler;
+static esp_event_handler_instance_t s_ip_got_ip_handler;
 
 static void get_service_name(char *name, size_t max_len)
 {
@@ -124,9 +126,9 @@ static void wifi_manager_task(void *pv)
 
     s_event_queue = xQueueCreate(10, sizeof(wifi_internal_event_t));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL, NULL));
+        WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL, &s_wifi_any_handler));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL, NULL));
+        IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL, &s_ip_got_ip_handler));
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
@@ -180,4 +182,27 @@ esp_err_t wifi_manager_start(void)
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
+}
+
+void wifi_manager_stop(void)
+{
+    if (!s_task_handle) {
+        return;
+    }
+
+    esp_wifi_stop();
+    esp_wifi_deinit();
+
+    esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                          s_wifi_any_handler);
+    esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
+                                          s_ip_got_ip_handler);
+
+    if (s_event_queue) {
+        vQueueDelete(s_event_queue);
+        s_event_queue = NULL;
+    }
+
+    vTaskDelete(s_task_handle);
+    s_task_handle = NULL;
 }
