@@ -10,6 +10,9 @@
 static esp_lcd_panel_handle_t s_panel;
 static lv_draw_buf_t *s_draw_buf;
 static uint8_t *s_buf1;
+static lv_display_t *s_disp;
+static TaskHandle_t s_lvgl_task;
+static esp_timer_handle_t s_lvgl_tick_timer;
 
 static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
@@ -57,9 +60,9 @@ void gui_init(esp_lcd_panel_handle_t panel)
     s_draw_buf = lv_draw_buf_create(LCD_H_RES, 10, LV_COLOR_FORMAT_NATIVE, LV_STRIDE_AUTO);
     s_buf1 = s_draw_buf->data;
 
-    lv_display_t *disp = lv_display_create(g_display.width, g_display.height);
-    lv_display_set_flush_cb(disp, lvgl_flush_cb);
-    lv_display_set_buffers(disp, s_buf1, NULL, LCD_H_RES * 10, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    s_disp = lv_display_create(g_display.width, g_display.height);
+    lv_display_set_flush_cb(s_disp, lvgl_flush_cb);
+    lv_display_set_buffers(s_disp, s_buf1, NULL, LCD_H_RES * 10, LV_DISPLAY_RENDER_MODE_PARTIAL);
 
     lv_indev_t *indev = lv_indev_create();
     lv_indev_set_read_cb(indev, lvgl_touch_read);
@@ -68,9 +71,31 @@ void gui_init(esp_lcd_panel_handle_t panel)
         .callback = &lvgl_tick_timer_cb,
         .name = "lvgl_tick"
     };
-    esp_timer_handle_t lvgl_tick_timer;
-    esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer);
-    esp_timer_start_periodic(lvgl_tick_timer, 1000);
+    esp_timer_create(&lvgl_tick_timer_args, &s_lvgl_tick_timer);
+    esp_timer_start_periodic(s_lvgl_tick_timer, 1000);
 
-    xTaskCreatePinnedToCore(lvgl_task, "lvgl", 8192, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(lvgl_task, "lvgl", 8192, NULL, 5, &s_lvgl_task, 1);
+}
+
+void gui_deinit(void)
+{
+    if (s_lvgl_task) {
+        vTaskDelete(s_lvgl_task);
+        s_lvgl_task = NULL;
+    }
+    if (s_lvgl_tick_timer) {
+        esp_timer_stop(s_lvgl_tick_timer);
+        esp_timer_delete(s_lvgl_tick_timer);
+        s_lvgl_tick_timer = NULL;
+    }
+    if (s_disp) {
+        lv_display_delete(s_disp);
+        s_disp = NULL;
+    }
+    if (s_draw_buf) {
+        lv_draw_buf_destroy(s_draw_buf);
+        s_draw_buf = NULL;
+        s_buf1 = NULL;
+    }
+    lv_deinit();
 }
