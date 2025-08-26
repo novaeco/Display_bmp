@@ -185,6 +185,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "write fail");
             return ESP_FAIL;
         }
+        remaining -= (size_t)received;
         long pos = ftell(f);
         if (pos < 0 || (size_t)pos > CONFIG_UPLOAD_MAX_BYTES) {
             fclose(f);
@@ -193,7 +194,6 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
             httpd_resp_send(req, "Payload too large", HTTPD_RESP_USE_STRLEN);
             return ESP_FAIL;
         }
-        remaining -= (size_t)received;
     }
     fclose(f);
     httpd_resp_sendstr(req, "OK");
