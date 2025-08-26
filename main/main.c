@@ -210,8 +210,6 @@ void app_main(void)
     const char *selected_dir = NULL;
     image_source_t img_src = IMAGE_SOURCE_LOCAL;
     int8_t index = 0;
-    uint16_t prev_x = 0;
-    uint16_t prev_y = 0;
 
     app_state_t state = APP_STATE_SOURCE_SELECTION;
 
@@ -313,7 +311,7 @@ void app_main(void)
             break;  
 
         case APP_STATE_NAVIGATION: {
-            nav_action_t act = handle_touch_navigation(&index, &prev_x, &prev_y);
+            nav_action_t act = handle_touch_navigation(&index);
             if (act == NAV_EXIT) {
                 ui_navigation_deinit();
                 state = APP_STATE_EXIT;
@@ -321,8 +319,6 @@ void app_main(void)
                 ui_navigation_deinit();
                 bmp_list_free();
                 index = 0;
-                prev_x = 0;
-                prev_y = 0;
                 selected_dir = NULL;
                 lv_obj_clean(lv_scr_act());
                 state = APP_STATE_SOURCE_SELECTION;

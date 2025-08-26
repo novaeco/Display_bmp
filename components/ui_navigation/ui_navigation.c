@@ -280,10 +280,8 @@ void draw_navigation_arrows(void)
     lv_label_set_text(lbl_rotate, "Rotation");
 }
 
-nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
+nav_action_t handle_touch_navigation(int8_t *idx)
 {
-    (void)prev_x;
-    (void)prev_y;
     int8_t dir;
     if (s_nav_queue && xQueueReceive(s_nav_queue, &dir, pdMS_TO_TICKS(50)) == pdTRUE) {
         if (dir == 2) {
