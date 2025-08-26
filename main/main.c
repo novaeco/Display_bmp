@@ -266,17 +266,12 @@ void app_main(void)
                             vTaskDelay(pdMS_TO_TICKS(100));
                             wait_ms -= 100;
                         }
-                        if (!s_wifi_ready || s_wifi_failed) {
+                        esp_err_t err = start_file_server();
+                        if (!s_wifi_ready || s_wifi_failed || err != ESP_OK) {
                             UWORD err_x = g_display.width / TEXT_X_DIVISOR;
                             UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
-                            Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED, WHITE);
-                            wifi_manager_stop();
-                            stop_file_server();
-                            state = APP_STATE_SOURCE_SELECTION;
-                        } else if (start_file_server() != ESP_OK) {
-                            UWORD err_x = g_display.width / TEXT_X_DIVISOR;
-                            UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
-                            Paint_DrawString_EN(err_x, err_y, "Échec serveur.", &Font24, RED, WHITE);
+                            const char *msg = (!s_wifi_ready || s_wifi_failed) ? "Échec WiFi..." : "Échec serveur.";
+                            Paint_DrawString_EN(err_x, err_y, msg, &Font24, RED, WHITE);
                             wifi_manager_stop();
                             stop_file_server();
                             state = APP_STATE_SOURCE_SELECTION;
