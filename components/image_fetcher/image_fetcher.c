@@ -80,9 +80,20 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
 
     mbedtls_sha256_context sha_ctx;
     mbedtls_sha256_init(&sha_ctx);
-    mbedtls_sha256_starts(&sha_ctx, 0);
+    FILE *f = NULL;
+    int rc = mbedtls_sha256_starts_ret(&sha_ctx, 0);
+    if (rc != 0) {
+        if (f) {
+            fclose(f);
+        }
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        remove(dest_path);
+        mbedtls_sha256_free(&sha_ctx);
+        return ESP_FAIL;
+    }
 
-    FILE *f = fopen(dest_path, "wb");
+    f = fopen(dest_path, "wb");
     if (!f) {
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
@@ -102,11 +113,26 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
         }
         fwrite(buf, 1, data_read, f);
         total_read += data_read;
-        mbedtls_sha256_update(&sha_ctx, buf, data_read);
+        rc = mbedtls_sha256_update_ret(&sha_ctx, buf, data_read);
+        if (rc != 0) {
+            fclose(f);
+            esp_http_client_close(client);
+            esp_http_client_cleanup(client);
+            remove(dest_path);
+            mbedtls_sha256_free(&sha_ctx);
+            return ESP_FAIL;
+        }
     }
     fclose(f);
     uint8_t actual_hash[32];
-    mbedtls_sha256_finish(&sha_ctx, actual_hash);
+    rc = mbedtls_sha256_finish_ret(&sha_ctx, actual_hash);
+    if (rc != 0) {
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        remove(dest_path);
+        mbedtls_sha256_free(&sha_ctx);
+        return ESP_FAIL;
+    }
     mbedtls_sha256_free(&sha_ctx);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
@@ -179,7 +205,13 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
 
     mbedtls_sha256_context sha_ctx;
     mbedtls_sha256_init(&sha_ctx);
-    mbedtls_sha256_starts(&sha_ctx, 0);
+    int rc = mbedtls_sha256_starts_ret(&sha_ctx, 0);
+    if (rc != 0) {
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        mbedtls_sha256_free(&sha_ctx);
+        return ESP_FAIL;
+    }
 
     uint8_t *buf = NULL;
     size_t cap = 0;
@@ -206,11 +238,25 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
         }
         memcpy(buf + total, tmp_buf, r);
         total += r;
-        mbedtls_sha256_update(&sha_ctx, tmp_buf, r);
+        rc = mbedtls_sha256_update_ret(&sha_ctx, tmp_buf, r);
+        if (rc != 0) {
+            free(buf);
+            esp_http_client_close(client);
+            esp_http_client_cleanup(client);
+            mbedtls_sha256_free(&sha_ctx);
+            return ESP_FAIL;
+        }
     }
 
     uint8_t actual_hash[32];
-    mbedtls_sha256_finish(&sha_ctx, actual_hash);
+    rc = mbedtls_sha256_finish_ret(&sha_ctx, actual_hash);
+    if (rc != 0) {
+        free(buf);
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        mbedtls_sha256_free(&sha_ctx);
+        return ESP_FAIL;
+    }
     mbedtls_sha256_free(&sha_ctx);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
