@@ -206,6 +206,10 @@ void app_main(void)
         } else {
             draw_orientation_menu();
 
+            // Stop the temporary touch task and free its queue, but keep GT911 initialized
+            // so LVGL can continue polling the controller directly.
+            touch_task_deinit();
+
             wifi_manager_register_callback(wifi_status_cb);
 
             const char *selected_dir = NULL;
