@@ -4,6 +4,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "config.h"
+#include "esp_log.h"
+#include "esp_timer.h"
 
 static esp_lcd_panel_handle_t s_panel;
 static lv_draw_buf_t *s_draw_buf;
@@ -27,12 +29,23 @@ static void lvgl_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
     }
 }
 
+static const char *TAG = "lvgl";
+
+static void lvgl_tick_timer_cb(void *arg)
+{
+    (void)arg;
+    lv_tick_inc(1);
+}
+
 static void lvgl_task(void *arg)
 {
     while (1) {
         lv_timer_handler();
+        UBaseType_t stack_words = uxTaskGetStackHighWaterMark(NULL);
+        if (stack_words < 512) {
+            ESP_LOGW(TAG, "Low stack: %u words remaining", stack_words);
+        }
         vTaskDelay(pdMS_TO_TICKS(10));
-        lv_tick_inc(10);
     }
 }
 
@@ -51,5 +64,13 @@ void gui_init(esp_lcd_panel_handle_t panel)
     lv_indev_t *indev = lv_indev_create();
     lv_indev_set_read_cb(indev, lvgl_touch_read);
 
-    xTaskCreate(lvgl_task, "lvgl", 4096, NULL, 5, NULL);
+    const esp_timer_create_args_t lvgl_tick_timer_args = {
+        .callback = &lvgl_tick_timer_cb,
+        .name = "lvgl_tick"
+    };
+    esp_timer_handle_t lvgl_tick_timer;
+    esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer);
+    esp_timer_start_periodic(lvgl_tick_timer, 1000);
+
+    xTaskCreatePinnedToCore(lvgl_task, "lvgl", 8192, NULL, 5, NULL, 1);
 }
