@@ -104,39 +104,44 @@ esp_err_t esp_lcd_touch_new_i2c_gt911(const esp_lcd_panel_io_handle_t io, const 
         ESP_GOTO_ON_ERROR(ret, err, TAG, "GPIO config failed");
     }
 
-    if (gt911_config && esp_lcd_touch_gt911->config.rst_gpio_num != GPIO_NUM_NC && esp_lcd_touch_gt911->config.int_gpio_num != GPIO_NUM_NC) {
-        /* Prepare pin for touch controller int */
-        const gpio_config_t int_gpio_config = {
-            .mode = GPIO_MODE_OUTPUT,
-            .intr_type = GPIO_INTR_DISABLE,
-            .pull_down_en = 0,
-            .pull_up_en = 1,
-            .pin_bit_mask = BIT64(esp_lcd_touch_gt911->config.int_gpio_num),
-        };
-        ret = gpio_config(&int_gpio_config);
-        ESP_GOTO_ON_ERROR(ret, err, TAG, "GPIO config failed");
+    if (gt911_config && esp_lcd_touch_gt911->config.int_gpio_num != GPIO_NUM_NC) {
+        if (esp_lcd_touch_gt911->config.rst_gpio_num != GPIO_NUM_NC) {
+            /* Prepare pin for touch controller int */
+            const gpio_config_t int_gpio_config = {
+                .mode = GPIO_MODE_OUTPUT,
+                .intr_type = GPIO_INTR_DISABLE,
+                .pull_down_en = 0,
+                .pull_up_en = 1,
+                .pin_bit_mask = BIT64(esp_lcd_touch_gt911->config.int_gpio_num),
+            };
+            ret = gpio_config(&int_gpio_config);
+            ESP_GOTO_ON_ERROR(ret, err, TAG, "GPIO config failed");
 
-        ESP_RETURN_ON_ERROR(gpio_set_level(esp_lcd_touch_gt911->config.rst_gpio_num, esp_lcd_touch_gt911->config.levels.reset), TAG, "GPIO set level error!");
-        ESP_RETURN_ON_ERROR(gpio_set_level(esp_lcd_touch_gt911->config.int_gpio_num, 0), TAG, "GPIO set level error!");
-        vTaskDelay(pdMS_TO_TICKS(10));
+            ESP_RETURN_ON_ERROR(gpio_set_level(esp_lcd_touch_gt911->config.rst_gpio_num, esp_lcd_touch_gt911->config.levels.reset), TAG, "GPIO set level error!");
+            ESP_RETURN_ON_ERROR(gpio_set_level(esp_lcd_touch_gt911->config.int_gpio_num, 0), TAG, "GPIO set level error!");
+            vTaskDelay(pdMS_TO_TICKS(10));
 
-        /* Select I2C addr, set output high or low */
-        uint32_t gpio_level;
-        if (ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP == gt911_config->dev_addr) {
-            gpio_level = 1;
-        } else if (ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS == gt911_config->dev_addr) {
-            gpio_level = 0;
+            /* Select I2C addr, set output high or low */
+            uint32_t gpio_level;
+            if (ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP == gt911_config->dev_addr) {
+                gpio_level = 1;
+            } else if (ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS == gt911_config->dev_addr) {
+                gpio_level = 0;
+            } else {
+                gpio_level = 0;
+                ESP_LOGE(TAG, "Addr (0x%X) is invalid", gt911_config->dev_addr);
+            }
+            ESP_RETURN_ON_ERROR(gpio_set_level(esp_lcd_touch_gt911->config.int_gpio_num, gpio_level), TAG, "GPIO set level error!");
+            vTaskDelay(pdMS_TO_TICKS(1));
+
+            ESP_RETURN_ON_ERROR(gpio_set_level(esp_lcd_touch_gt911->config.rst_gpio_num, !esp_lcd_touch_gt911->config.levels.reset), TAG, "GPIO set level error!");
+            vTaskDelay(pdMS_TO_TICKS(10));
+
+            vTaskDelay(pdMS_TO_TICKS(50));
         } else {
-            gpio_level = 0;
-            ESP_LOGE(TAG, "Addr (0x%X) is invalid", gt911_config->dev_addr);
+            /* Reset is handled externally (remote reset); IO-extension selects the GT911 I2C address */
+            ESP_LOGI(TAG, "RST pin not connected, assuming external reset/address sequence");
         }
-        ESP_RETURN_ON_ERROR(gpio_set_level(esp_lcd_touch_gt911->config.int_gpio_num, gpio_level), TAG, "GPIO set level error!");
-        vTaskDelay(pdMS_TO_TICKS(1));
-
-        ESP_RETURN_ON_ERROR(gpio_set_level(esp_lcd_touch_gt911->config.rst_gpio_num, !esp_lcd_touch_gt911->config.levels.reset), TAG, "GPIO set level error!");
-        vTaskDelay(pdMS_TO_TICKS(10));
-
-        vTaskDelay(pdMS_TO_TICKS(50));
     } else {
         ESP_LOGW(TAG, "Unable to initialize the I2C address");
         ret = ESP_ERR_INVALID_STATE;
