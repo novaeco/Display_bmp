@@ -75,7 +75,6 @@ void touch_task_deinit(void)
     }
     if (s_touch_handle) {
         esp_lcd_touch_register_interrupt_callback(s_touch_handle, NULL);
-        esp_lcd_touch_del(s_touch_handle);
-        s_touch_handle = NULL;
+        // Deinitialization performed in touch_gt911_deinit()
     }
 }

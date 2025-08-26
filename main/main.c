@@ -79,6 +79,7 @@ static void app_cleanup(void)
 {
     ui_navigation_deinit();
     touch_task_deinit();
+    touch_gt911_deinit();
     wifi_manager_stop();
     stop_file_server();
     esp_err_t unmount_ret = sd_mmc_unmount();

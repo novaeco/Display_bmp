@@ -91,6 +91,11 @@ esp_lcd_touch_handle_t touch_gt911_init();
 touch_gt911_point_t touch_gt911_read_point(uint8_t max_touch_cnt);
 
 /**
+ * @brief Deinitialize the GT911 touch controller and release I2C resources
+ */
+void touch_gt911_deinit(void);
+
+/**
  * @brief Touch IO configuration structure for GT911
  *
  * This macro initializes the configuration structure for the GT911 touch controller's 
