@@ -12,6 +12,7 @@
 #include "lvgl.h"
 #include "freertos/queue.h"
 #include <string.h>
+#include "esp_log.h"
 
 extern UBYTE *BlackImage;
 extern display_geometry_t g_display;
@@ -248,6 +249,10 @@ void draw_navigation_arrows(void)
 {
     if (!s_nav_queue) {
         s_nav_queue = xQueueCreate(5, sizeof(int8_t));
+        if (!s_nav_queue) {
+            ESP_LOGE("NAV", "xQueueCreate failed");
+            return;
+        }
     } else {
         xQueueReset(s_nav_queue);
     }
