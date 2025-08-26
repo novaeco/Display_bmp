@@ -20,6 +20,8 @@ static sdmmc_card_t *card = NULL;
 
 // Track initialization state to prevent double mount/unmount
 static bool sd_initialized = false;
+// Track mount state to avoid redundant unmount operations
+static bool s_sd_mounted = false;
 
 // Translate FatFs error codes to esp_err_t
 static esp_err_t ff_result_to_esp_err(FRESULT result) {
@@ -121,6 +123,7 @@ esp_err_t sd_mmc_init() {
         return ret;
     }
     sd_initialized = true;
+    s_sd_mounted = true;
     ESP_LOGI(SD_TAG, "Filesystem mounted");
     return ret;
 }
@@ -148,13 +151,14 @@ void sd_card_print_info() {
  * @retval other esp_err_t codes from esp_vfs_fat_sdcard_unmount on failure.
  */
 esp_err_t sd_mmc_unmount() {
-    if (!card) {
+    if (!s_sd_mounted) {
         return ESP_ERR_INVALID_STATE;
     }
     esp_err_t ret = esp_vfs_fat_sdcard_unmount(mount_point, card);
     if (ret == ESP_OK) {
         card = NULL;
         sd_initialized = false;
+        s_sd_mounted = false;
     }
     return ret;
 }
