@@ -42,6 +42,7 @@ static int s_retry_num;
 static bool s_fail_notified;
 static esp_event_handler_instance_t s_wifi_any_handler;
 static esp_event_handler_instance_t s_ip_got_ip_handler;
+static esp_netif_t *s_sta_netif;
 
 static void get_service_name(char *name, size_t max_len)
 {
@@ -110,7 +111,7 @@ static void wifi_manager_task(void *pv)
 
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_sta();
+    s_sta_netif = esp_netif_create_default_wifi_sta();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -190,6 +191,7 @@ void wifi_manager_stop(void)
         return;
     }
 
+    esp_wifi_disconnect();
     esp_wifi_stop();
     esp_wifi_deinit();
 
@@ -197,6 +199,14 @@ void wifi_manager_stop(void)
                                           s_wifi_any_handler);
     esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                           s_ip_got_ip_handler);
+
+    if (s_sta_netif) {
+        esp_netif_destroy(s_sta_netif);
+        s_sta_netif = NULL;
+    }
+
+    esp_event_loop_delete_default();
+    esp_netif_deinit();
 
     if (s_event_queue) {
         vQueueDelete(s_event_queue);
