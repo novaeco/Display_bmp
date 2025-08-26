@@ -153,7 +153,12 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         }
     }
 
-    snprintf(filepath, sizeof(filepath), "%s/upload/%s", MOUNT_POINT, clean_name);
+    int len = snprintf(filepath, sizeof(filepath), "%s/upload/%s", MOUNT_POINT, clean_name);
+    if (len < 0 || len >= sizeof(filepath)) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "path too long");
+        return ESP_FAIL;
+    }
+
     f = fopen(filepath, "w");
     if (!f) {
         ESP_LOGE(TAG, "fopen failed: %s", filepath);
@@ -162,10 +167,10 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     }
 
     char buf[1024];
-    int remaining = req->content_len;
+    size_t remaining = req->content_len;
     while (remaining > 0) {
-        int received = httpd_req_recv(req, buf, remaining > sizeof(buf) ? sizeof(buf) : remaining);
-        if (received <= 0) {
+        ssize_t received = httpd_req_recv(req, buf, remaining > sizeof(buf) ? sizeof(buf) : remaining);
+        if (received < 0) {
             if (received == HTTPD_SOCK_ERR_TIMEOUT) {
                 continue;
             }
@@ -174,7 +179,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "recv fail");
             return ESP_FAIL;
         }
-        if (fwrite(buf, 1, received, f) != received) {
+        if (fwrite(buf, 1, (size_t)received, f) != (size_t)received) {
             fclose(f);
             unlink(filepath);
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "write fail");
@@ -188,7 +193,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
             httpd_resp_send(req, "Payload too large", HTTPD_RESP_USE_STRLEN);
             return ESP_FAIL;
         }
-        remaining -= received;
+        remaining -= (size_t)received;
     }
     fclose(f);
     httpd_resp_sendstr(req, "OK");

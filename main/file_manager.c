@@ -65,7 +65,12 @@ static esp_err_t read_dir_page(size_t max_files)
             ret = ESP_ERR_NO_MEM;
             break;
         }
-        snprintf(full_path, length, "%s/%s", s_base_path, entry->d_name);
+        int written = snprintf(full_path, length, "%s/%s", s_base_path, entry->d_name);
+        if (written < 0 || (size_t)written >= length) {
+            free(full_path);
+            ret = ESP_ERR_INVALID_SIZE;
+            break;
+        }
         ret = bmp_list_append(&bmp_list, full_path);
         if (ret != ESP_OK) {
             free(full_path);
