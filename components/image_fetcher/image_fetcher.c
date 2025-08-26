@@ -98,6 +98,7 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
     if (!f) {
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
+        mbedtls_sha256_free(&sha_ctx);
         return ESP_FAIL;
     }
     uint8_t buf[512];
