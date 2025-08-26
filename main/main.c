@@ -212,7 +212,7 @@ void app_main(void)
 
             wifi_manager_register_callback(wifi_status_cb);
 
-            const char *selected_dir = NULL;
+            char *selected_dir = NULL;
             image_source_t img_src = IMAGE_SOURCE_LOCAL;
             int8_t index = 0;
 
@@ -308,6 +308,7 @@ void app_main(void)
                         break;
                     }
                     snprintf(g_base_path, sizeof(g_base_path), "%s/%s", MOUNT_POINT, selected_dir);
+                    char *selected_dir_tmp = selected_dir;
                     bmp_page_start = 0;
                     esp_err_t err = list_files_sorted(g_base_path, bmp_page_start, BMP_LIST_INIT_CAP);
                     if (err != ESP_OK) {
@@ -325,6 +326,8 @@ void app_main(void)
 
                         state = APP_STATE_NAVIGATION;
                     }
+                    free(selected_dir_tmp);
+                    selected_dir = NULL;
                     break;
 
                 case APP_STATE_NAVIGATION: {
