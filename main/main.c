@@ -276,7 +276,7 @@ void app_main(void)
                                     lv_obj_clean(lv_scr_act());
                                     Paint_DrawString_EN(msg_x, msg_y, "Upload BMP via:", &Font24, BLACK, WHITE);
                                     Paint_DrawString_EN(msg_x, msg_y + TEXT_LINE_SPACING, url, &Font24, BLACK, WHITE);
-
+                                    state = APP_STATE_NAVIGATION;
                                 }
                             }
                         }
