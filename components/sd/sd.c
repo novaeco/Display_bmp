@@ -21,7 +21,7 @@ static sdmmc_card_t *card = NULL;
 // Track initialization state to prevent double mount/unmount
 static bool sd_initialized = false;
 // Track mount state to avoid redundant unmount operations
-static bool s_sd_mounted = false;
+static bool s_sd_mounted;
 
 // Translate FatFs error codes to esp_err_t
 static esp_err_t ff_result_to_esp_err(FRESULT result) {
