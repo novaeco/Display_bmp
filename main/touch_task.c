@@ -35,8 +35,7 @@ static void touch_task(void *arg)
 
 bool touch_task_init(void)
 {
-    s_touch_handle = touch_gt911_init();
-    if (s_touch_handle == NULL) {
+    if (touch_gt911_init(&s_touch_handle) != ESP_OK) {
         ESP_LOGE(TAG, "Échec d'initialisation du GT911");
         return false;
     }

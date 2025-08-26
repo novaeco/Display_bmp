@@ -163,3 +163,15 @@ esp_err_t DEV_I2C_Read_Nbyte(i2c_master_dev_handle_t dev_handle, uint8_t Cmd, ui
 {
     return i2c_master_transmit_receive(dev_handle, &Cmd, 1, pdata, len, 100);  // Send command and receive data
 }
+
+void DEV_I2C_Deinit(void)
+{
+    if (handle.dev) {
+        i2c_master_bus_rm_device(handle.dev);
+        handle.dev = NULL;
+    }
+    if (handle.bus) {
+        i2c_del_master_bus(handle.bus);
+        handle.bus = NULL;
+    }
+}
