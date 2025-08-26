@@ -17,6 +17,39 @@ static const char *TAG = "i2c";  // Define a tag for logging
 // Global handle for the I2C master bus
 // i2c_master_bus_handle_t bus_handle = NULL;
 DEV_I2C_Port handle;
+
+/**
+ * @brief Check that I2C bus lines are pulled high by external resistors.
+ *
+ * This function temporarily configures the SDA and SCL pins as simple inputs
+ * with internal pull-ups disabled and reads their logic levels. If either line
+ * is low, it is likely that the required external pull-up resistors are
+ * missing or the bus is being held low by a connected device. In that case a
+ * warning is logged so the user can diagnose the hardware before attempting
+ * any I2C communication.
+ */
+static void i2c_bus_check_pullups(void)
+{
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << EXAMPLE_I2C_MASTER_SDA) |
+                        (1ULL << EXAMPLE_I2C_MASTER_SCL),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+
+    gpio_config(&io_conf);
+
+    int sda_level = gpio_get_level(EXAMPLE_I2C_MASTER_SDA);
+    int scl_level = gpio_get_level(EXAMPLE_I2C_MASTER_SCL);
+
+    if (!sda_level || !scl_level) {
+        ESP_LOGW(TAG,
+                 "I2C lines not pulled high (SDA=%d, SCL=%d). Check external pull-up resistors.",
+                 sda_level, scl_level);
+    }
+}
 /**
  * @brief Initialize the I2C master interface.
  * 
@@ -28,6 +61,9 @@ DEV_I2C_Port handle;
  */
 DEV_I2C_Port DEV_I2C_Init()
 {
+    // Verify that SDA and SCL lines are pulled high before configuring the bus
+    i2c_bus_check_pullups();
+
     // Define I2C bus configuration parameters
     i2c_master_bus_config_t i2c_bus_config = {
         .clk_source = I2C_CLK_SRC_DEFAULT,       // Default clock source for I2C
