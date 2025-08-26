@@ -81,8 +81,9 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
     mbedtls_sha256_context sha_ctx;
     mbedtls_sha256_init(&sha_ctx);
     FILE *f = NULL;
-    int rc = mbedtls_sha256_starts_ret(&sha_ctx, 0);
+    int rc = mbedtls_sha256_starts(&sha_ctx, 0);
     if (rc != 0) {
+        ESP_LOGE(TAG, "mbedtls_sha256_starts failed: %d", rc);
         if (f) {
             fclose(f);
         }
@@ -113,8 +114,9 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
         }
         fwrite(buf, 1, data_read, f);
         total_read += data_read;
-        rc = mbedtls_sha256_update_ret(&sha_ctx, buf, data_read);
+        rc = mbedtls_sha256_update(&sha_ctx, buf, data_read);
         if (rc != 0) {
+            ESP_LOGE(TAG, "mbedtls_sha256_update failed: %d", rc);
             fclose(f);
             esp_http_client_close(client);
             esp_http_client_cleanup(client);
@@ -125,8 +127,9 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
     }
     fclose(f);
     uint8_t actual_hash[32];
-    rc = mbedtls_sha256_finish_ret(&sha_ctx, actual_hash);
+    rc = mbedtls_sha256_finish(&sha_ctx, actual_hash);
     if (rc != 0) {
+        ESP_LOGE(TAG, "mbedtls_sha256_finish failed: %d", rc);
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
         remove(dest_path);
@@ -205,8 +208,9 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
 
     mbedtls_sha256_context sha_ctx;
     mbedtls_sha256_init(&sha_ctx);
-    int rc = mbedtls_sha256_starts_ret(&sha_ctx, 0);
+    int rc = mbedtls_sha256_starts(&sha_ctx, 0);
     if (rc != 0) {
+        ESP_LOGE(TAG, "mbedtls_sha256_starts failed: %d", rc);
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
         mbedtls_sha256_free(&sha_ctx);
@@ -238,8 +242,9 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
         }
         memcpy(buf + total, tmp_buf, r);
         total += r;
-        rc = mbedtls_sha256_update_ret(&sha_ctx, tmp_buf, r);
+        rc = mbedtls_sha256_update(&sha_ctx, tmp_buf, r);
         if (rc != 0) {
+            ESP_LOGE(TAG, "mbedtls_sha256_update failed: %d", rc);
             free(buf);
             esp_http_client_close(client);
             esp_http_client_cleanup(client);
@@ -249,8 +254,9 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
     }
 
     uint8_t actual_hash[32];
-    rc = mbedtls_sha256_finish_ret(&sha_ctx, actual_hash);
+    rc = mbedtls_sha256_finish(&sha_ctx, actual_hash);
     if (rc != 0) {
+        ESP_LOGE(TAG, "mbedtls_sha256_finish failed: %d", rc);
         free(buf);
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
