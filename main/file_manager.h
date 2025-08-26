@@ -25,6 +25,13 @@ extern DIR *bmp_dir;
 #define BMP_LIST_INIT_CAP 16
 
 void bmp_list_free(void);
+/**
+ * @brief Load a page of BMP files sorted alphabetically.
+ *
+ * Populate ::bmp_list with up to @p max_files entries starting from @p start_idx
+ * within the directory located at @p base_path. The resulting list is sorted
+ * using a case-insensitive comparison to provide deterministic ordering.
+ */
 esp_err_t list_files_sorted(const char *base_path, size_t start_idx, size_t max_files);
 esp_err_t file_manager_next_page(size_t max_files);
 
