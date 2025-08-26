@@ -37,7 +37,7 @@ bool touch_task_init(void)
 {
     s_touch_handle = touch_gt911_init();
     if (s_touch_handle == NULL) {
-        ESP_LOGE(TAG, "Échec d'initialisation du contrôleur tactile");
+        ESP_LOGE(TAG, "Échec d'initialisation du GT911");
         return false;
     }
     s_touch_queue = xQueueCreate(TOUCH_QUEUE_LENGTH, sizeof(touch_gt911_point_t));
