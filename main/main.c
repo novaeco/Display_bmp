@@ -78,6 +78,8 @@ static void wifi_status_cb(wifi_manager_event_t event)
 static void app_cleanup(void)
 {
     touch_task_deinit();
+    wifi_manager_stop();
+    stop_file_server();
     esp_err_t unmount_ret = sd_mmc_unmount();
     if (unmount_ret != ESP_OK) {
         ESP_LOGW(TAG, "sd_mmc_unmount a échoué : %s", esp_err_to_name(unmount_ret));
@@ -213,8 +215,10 @@ void app_main(void)
     app_state_t state = APP_STATE_SOURCE_SELECTION;
 
     while (state != APP_STATE_EXIT) {
-        switch (state) {  
+        switch (state) {
         case APP_STATE_SOURCE_SELECTION:
+            wifi_manager_stop();
+            stop_file_server();
             img_src = draw_source_selection();
             lv_obj_clean(lv_scr_act());
             if (img_src == IMAGE_SOURCE_REMOTE) {

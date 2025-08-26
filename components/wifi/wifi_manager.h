@@ -16,6 +16,7 @@ typedef void (*wifi_event_cb_t)(wifi_manager_event_t event);
 
 void wifi_manager_register_callback(wifi_event_cb_t cb);
 esp_err_t wifi_manager_start(void);
+void wifi_manager_stop(void);
 
 #ifdef __cplusplus
 }
