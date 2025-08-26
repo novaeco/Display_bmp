@@ -139,9 +139,8 @@ esp_err_t esp_lcd_touch_new_i2c_gt911(const esp_lcd_panel_io_handle_t io, const 
         vTaskDelay(pdMS_TO_TICKS(50));
     } else {
         ESP_LOGW(TAG, "Unable to initialize the I2C address");
-        /* Reset controller */
-        ret = touch_gt911_reset(esp_lcd_touch_gt911);
-        ESP_GOTO_ON_ERROR(ret, err, TAG, "GT911 reset failed");
+        ret = ESP_ERR_INVALID_STATE;
+        goto err;
     }
 
     /* Prepare pin for touch interrupt */
@@ -169,6 +168,7 @@ err:
         ESP_LOGE(TAG, "Error (0x%x)! Touch controller GT911 initialization failed!", ret);
         if (esp_lcd_touch_gt911) {
             esp_lcd_touch_gt911_del(esp_lcd_touch_gt911);
+            esp_lcd_touch_gt911 = NULL;
         }
     }
 
@@ -414,7 +414,11 @@ esp_lcd_touch_handle_t touch_gt911_init()
     };
 
     // Create a new touch controller instance using the configured I2C and settings
-    ESP_ERROR_CHECK(esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, &tp_handle));
+    esp_err_t ret = esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, &tp_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "GT911 init failed: %s", esp_err_to_name(ret));
+        return NULL;
+    }
 
     return tp_handle;  // Return the touch controller handle
 }
