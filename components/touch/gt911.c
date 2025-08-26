@@ -21,6 +21,8 @@
 #include "gt911.h"
 
 static const char *TAG = "GT911";
+extern DEV_I2C_Port handle;                // I2C bus/device handle from i2c.c
+extern esp_lcd_touch_handle_t s_touch_handle; // Touch handle used by touch task
 
 /* GT911 registers */
 #define ESP_LCD_TOUCH_GT911_READ_KEY_REG    (0x8093)
@@ -415,6 +417,27 @@ esp_lcd_touch_handle_t touch_gt911_init()
     ESP_ERROR_CHECK(esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, &tp_handle));
 
     return tp_handle;  // Return the touch controller handle
+}
+
+// Function to deinitialize the GT911 touch controller and I2C resources
+void touch_gt911_deinit(void)
+{
+    // Delete touch controller instance if initialized
+    if (tp_handle) {
+        esp_lcd_touch_gt911_del(tp_handle);
+        tp_handle = NULL;
+        s_touch_handle = NULL;
+    }
+
+    // Release I2C device and bus
+    if (handle.dev) {
+        i2c_master_bus_rm_device(handle.dev);
+        handle.dev = NULL;
+    }
+    if (handle.bus) {
+        i2c_del_master_bus(handle.bus);
+        handle.bus = NULL;
+    }
 }
 
 // Function to read touch points from the GT911 touch controller
