@@ -336,6 +336,23 @@ void draw_navigation_arrows(void)
     lv_obj_add_event_cb(btn_rotate, nav_btn_cb, LV_EVENT_CLICKED, (void*)(intptr_t)2);
     lv_obj_t *lbl_rotate = lv_label_create(btn_rotate);
     lv_label_set_text(lbl_rotate, "Rotation");
+
+    lv_obj_t *btn_home = lv_btn_create(scr);
+    lv_obj_set_size(btn_home, 100, 40);
+    lv_obj_set_pos(btn_home, g_display.margin_left,
+                   g_display.height - g_display.margin_bottom - 40);
+    lv_obj_add_event_cb(btn_home, nav_btn_cb, LV_EVENT_CLICKED, (void*)(intptr_t)3);
+    lv_obj_t *lbl_home = lv_label_create(btn_home);
+    lv_label_set_text(lbl_home, "Home");
+
+    lv_obj_t *btn_exit = lv_btn_create(scr);
+    lv_obj_set_size(btn_exit, 100, 40);
+    lv_obj_set_pos(btn_exit,
+                   g_display.width - g_display.margin_right - 100,
+                   g_display.height - g_display.margin_bottom - 40);
+    lv_obj_add_event_cb(btn_exit, nav_btn_cb, LV_EVENT_CLICKED, (void*)(intptr_t)4);
+    lv_obj_t *lbl_exit = lv_label_create(btn_exit);
+    lv_label_set_text(lbl_exit, "Exit");
 }
 
 nav_action_t handle_touch_navigation(int8_t *idx)
@@ -347,6 +364,12 @@ nav_action_t handle_touch_navigation(int8_t *idx)
                 draw_filename_bar(bmp_list.items[*idx]);
             }
             return NAV_ROTATE;
+        }
+        if (dir == 3) {
+            return NAV_HOME;
+        }
+        if (dir == 4) {
+            return NAV_EXIT;
         }
         if (bmp_list.size == 0) {
             return NAV_NONE;
