@@ -77,6 +77,7 @@ static void wifi_status_cb(wifi_manager_event_t event)
 
 static void app_cleanup(void)
 {
+    ui_navigation_deinit();
     touch_task_deinit();
     wifi_manager_stop();
     stop_file_server();
@@ -314,8 +315,10 @@ void app_main(void)
         case APP_STATE_NAVIGATION: {
             nav_action_t act = handle_touch_navigation(&index, &prev_x, &prev_y);
             if (act == NAV_EXIT) {
+                ui_navigation_deinit();
                 state = APP_STATE_EXIT;
             } else if (act == NAV_HOME) {
+                ui_navigation_deinit();
                 bmp_list_free();
                 index = 0;
                 prev_x = 0;

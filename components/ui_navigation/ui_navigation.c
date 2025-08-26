@@ -332,3 +332,11 @@ void draw_filename_bar(const char *path)
     }
 }
 
+void ui_navigation_deinit(void)
+{
+    if (s_nav_queue) {
+        vQueueDelete(s_nav_queue);
+        s_nav_queue = NULL;
+    }
+}
+
