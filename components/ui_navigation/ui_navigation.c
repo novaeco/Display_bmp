@@ -515,6 +515,8 @@ nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *pr
 
 static QueueHandle_t s_nav_queue;
 static volatile int s_src_choice = -1;
+static lv_obj_t *s_fname_bar = NULL;
+static lv_obj_t *s_fname_label = NULL;
 
 static void source_btn_cb(lv_event_t *e)
 {
@@ -603,16 +605,58 @@ void draw_navigation_arrows(void)
 
 nav_action_t handle_touch_navigation(int8_t *idx, uint16_t *prev_x, uint16_t *prev_y)
 {
+    (void)prev_x;
+    (void)prev_y;
     int8_t dir;
     if (s_nav_queue && xQueueReceive(s_nav_queue, &dir, pdMS_TO_TICKS(50)) == pdTRUE) {
         if (dir == 2) {
+            if (bmp_list.size > 0) {
+                draw_filename_bar(bmp_list.items[*idx]);
+            }
             return NAV_ROTATE;
         }
+        if (bmp_list.size == 0) {
+            return NAV_NONE;
+        }
         *idx += dir;
+        if (*idx >= (int8_t)bmp_list.size) {
+            *idx = 0;
+        } else if (*idx < 0) {
+            *idx = (int8_t)bmp_list.size - 1;
+        }
+        draw_filename_bar(bmp_list.items[*idx]);
         return NAV_SCROLL;
     }
     return NAV_NONE;
 }
 
-void draw_filename_bar(const char *path) {}
+void draw_filename_bar(const char *path)
+{
+    const char *fname = strrchr(path, '/');
+    fname = fname ? fname + 1 : path;
+
+    const lv_font_t *font = LV_FONT_DEFAULT;
+    lv_coord_t bar_h = font->line_height + 2 * FILENAME_BAR_PAD;
+
+    if (!s_fname_bar || !lv_obj_is_valid(s_fname_bar)) {
+        s_fname_bar = lv_obj_create(lv_scr_act());
+        lv_obj_set_style_bg_color(s_fname_bar, lv_color_hex(0x808080), LV_PART_MAIN);
+        lv_obj_set_style_border_width(s_fname_bar, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(s_fname_bar, FILENAME_BAR_PAD, LV_PART_MAIN);
+        s_fname_label = lv_label_create(s_fname_bar);
+        lv_obj_set_style_text_color(s_fname_label, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    }
+
+    lv_obj_set_size(s_fname_bar, g_display.width, bar_h);
+    lv_obj_align(s_fname_bar, LV_ALIGN_TOP_MID, 0, 0);
+
+    lv_label_set_text(s_fname_label, fname);
+    lv_obj_center(s_fname_label);
+
+    if (g_is_portrait) {
+        lv_obj_set_style_transform_angle(s_fname_bar, 900, LV_PART_MAIN);
+    } else {
+        lv_obj_set_style_transform_angle(s_fname_bar, 0, LV_PART_MAIN);
+    }
+}
 
