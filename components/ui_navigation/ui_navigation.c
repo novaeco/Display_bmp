@@ -297,6 +297,8 @@ image_source_t draw_source_selection(void)
     while (s_src_choice == -1) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+    lv_scr_load(NULL);           // unload selection screen to avoid it remaining active
+    lv_obj_del(scr);             // delete screen object to prevent RAM accumulation
     return (image_source_t)s_src_choice;
 }
 
