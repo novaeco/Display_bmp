@@ -1,6 +1,5 @@
 #include "ui_navigation.h"
 #include "gui_paint.h"
-#include "gui_bmp.h"
 #include "battery.h"
 #include "file_manager.h"
 #include "touch_task.h"

@@ -13,7 +13,6 @@
 
 #include "rgb_lcd_port.h"    // En-tête du pilote LCD RGB Waveshare
 #include "gui_paint.h"       // En-tête des fonctions de dessin graphique
-#include "gui_bmp.h"         // En-tête pour la gestion des images BMP
 #include "sd.h"              // En-tête des opérations sur carte SD
 #include "config.h"
 #include "battery.h"
@@ -340,7 +339,6 @@ void app_main(void)
                         if (index >= bmp_list.size) index = 0;
                         else if (index < 0) index = bmp_list.size - 1;
                         Paint_Clear(WHITE);
-                        GUI_ReadBmp(0, 0, bmp_list.items[index]);
                         waveshare_rgb_lcd_display(BlackImage);
                         lv_obj_clean(lv_scr_act());
                         draw_navigation_arrows();
@@ -349,7 +347,6 @@ void app_main(void)
                         display_set_orientation(!g_is_portrait);
                         Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
                         Paint_Clear(WHITE);
-                        GUI_ReadBmp(0, 0, bmp_list.items[index]);
                         waveshare_rgb_lcd_display(BlackImage);
                         lv_obj_clean(lv_scr_act());
                         draw_navigation_arrows();
