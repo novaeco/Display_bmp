@@ -1,380 +1,393 @@
-/*****************************************************************************  
- * | Fichier    :   main.c  
- * | Auteur     :   équipe Waveshare  
- * | Rôle       :   Fonction principale  
- * | Description:   Lit des fichiers BMP depuis la carte SD et les affiche à l'écran.  
- * |                Utiliser l'écran tactile pour passer d'une image à l'autre.  
- *----------------  
- * | Version    :   V1.0  
- * | Date       :   2024-12-06  
- * | Note       :   Version de base + sélection de dossier (Reptiles/Presentation)  
- *  
- ******************************************************************************/  
+/*****************************************************************************
+ * | Fichier    :   main.c
+ * | Auteur     :   équipe Waveshare
+ * | Rôle       :   Fonction principale
+ * | Description:   Lit des fichiers PNG depuis la carte SD et les affiche à
+ *l'écran. |                Utiliser l'écran tactile pour passer d'une image à
+ *l'autre.
+ *----------------
+ * | Version    :   V1.0
+ * | Date       :   2024-12-06
+ * | Note       :   Version de base + sélection de dossier
+ *(Reptiles/Presentation)
+ *
+ ******************************************************************************/
 
-#include "rgb_lcd_port.h"    // En-tête du pilote LCD RGB Waveshare
-#include "gui_paint.h"       // En-tête des fonctions de dessin graphique
-#include "sd.h"              // En-tête des opérations sur carte SD
-#include "config.h"
 #include "battery.h"
-#include "file_manager.h"
-#include "ui_navigation.h"
-#include "touch_task.h"
-#include "wifi_manager.h"
-#include "image_fetcher.h"
-#include "pm.h"
 #include "can_display.h"
-#include "rs485_display.h"
-#include "gui.h"
-#include "lvgl.h"
-#include "http_server.h"
+#include "config.h"
 #include "esp_netif.h"
+#include "file_manager.h"
+#include "gui.h"
+#include "gui_paint.h" // En-tête des fonctions de dessin graphique
+#include "http_server.h"
+#include "image_fetcher.h"
+#include "lvgl.h"
 #include "lwip/inet.h"
+#include "pm.h"
+#include "rgb_lcd_port.h" // En-tête du pilote LCD RGB Waveshare
+#include "rs485_display.h"
+#include "sd.h" // En-tête des opérations sur carte SD
+#include "touch_task.h"
+#include "ui_navigation.h"
+#include "wifi_manager.h"
 
+#include "esp_err.h"
+#include "esp_heap_caps.h"
+#include "esp_log.h"
+#include "esp_pm.h"
+#include "esp_psram.h"
+#include "esp_sleep.h"
+#include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "nvs_flash.h"
+#include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include "esp_log.h"
-#include "esp_err.h"
-#include "esp_heap_caps.h"
-#include "nvs_flash.h"
-#include "esp_psram.h"
-#include <stdbool.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_pm.h"
-#include "esp_sleep.h"
-#include "esp_system.h"
 
-#define BASE_PATH_LEN            128
-#define PAINT_SCALE              65
-#define WIFI_CONNECT_TIMEOUT_MS  10000
+#define BASE_PATH_LEN 128
+#define PAINT_SCALE 65
+#define WIFI_CONNECT_TIMEOUT_MS 10000
 
-char g_base_path[BASE_PATH_LEN];     // Chemin du dossier actuellement affiché
+char g_base_path[BASE_PATH_LEN]; // Chemin du dossier actuellement affiché
 static const char *TAG = "APP";
-UBYTE *BlackImage;         // Framebuffer global
+UBYTE *BlackImage; // Framebuffer global
 
 typedef enum {
-    APP_STATE_SOURCE_SELECTION = 0,
-    APP_STATE_FOLDER_SELECTION,
-    APP_STATE_NAVIGATION,
-    APP_STATE_ERROR,
-    APP_STATE_EXIT
+  APP_STATE_SOURCE_SELECTION = 0,
+  APP_STATE_FOLDER_SELECTION,
+  APP_STATE_NAVIGATION,
+  APP_STATE_ERROR,
+  APP_STATE_EXIT
 } app_state_t;
 
 static volatile bool s_wifi_ready = false;
 static volatile bool s_wifi_failed = false;
 
-static void wifi_status_cb(wifi_manager_event_t event)
-{
-    if (event == WIFI_MANAGER_EVENT_CONNECTED) {
-        s_wifi_ready = true;
-    } else if (event == WIFI_MANAGER_EVENT_FAIL) {
-        s_wifi_failed = true;
-    }
+static void wifi_status_cb(wifi_manager_event_t event) {
+  if (event == WIFI_MANAGER_EVENT_CONNECTED) {
+    s_wifi_ready = true;
+  } else if (event == WIFI_MANAGER_EVENT_FAIL) {
+    s_wifi_failed = true;
+  }
 }
 
-
-static void app_cleanup(void)
-{
-    ui_navigation_deinit();
-    touch_task_deinit();
-    touch_gt911_deinit();
-    wifi_manager_stop();
-    stop_file_server();
-    esp_err_t unmount_ret = sd_mmc_unmount();
-    if (unmount_ret != ESP_OK) {
-        ESP_LOGW(TAG, "sd_mmc_unmount a échoué : %s", esp_err_to_name(unmount_ret));
-    }
-    bmp_list_free();
-    free(BlackImage);
-    BlackImage = NULL;
-    gui_deinit();
+static void app_cleanup(void) {
+  ui_navigation_deinit();
+  touch_task_deinit();
+  touch_gt911_deinit();
+  wifi_manager_stop();
+  stop_file_server();
+  esp_err_t unmount_ret = sd_mmc_unmount();
+  if (unmount_ret != ESP_OK) {
+    ESP_LOGW(TAG, "sd_mmc_unmount a échoué : %s", esp_err_to_name(unmount_ret));
+  }
+  png_list_free();
+  free(BlackImage);
+  BlackImage = NULL;
+  gui_deinit();
 }
 
-static bool init_peripherals(void)
-{
-    ESP_ERROR_CHECK(nvs_flash_init());
-    display_load_orientation();
+static bool init_peripherals(void) {
+  ESP_ERROR_CHECK(nvs_flash_init());
+  display_load_orientation();
 
-    ESP_ERROR_CHECK(esp_psram_init());
+  ESP_ERROR_CHECK(esp_psram_init());
 
-    if (!touch_task_init()) {
-        ESP_LOGE(TAG, "Échec d'initialisation de la tâche tactile");
-        return false;
-    }
+  if (!touch_task_init()) {
+    ESP_LOGE(TAG, "Échec d'initialisation de la tâche tactile");
+    return false;
+  }
 
-    esp_lcd_panel_handle_t panel = waveshare_esp32_s3_rgb_lcd_init();
-    if (panel == NULL) {
-        ESP_LOGE(TAG, "Échec d'initialisation du LCD");
-        return false;
-    }
+  esp_lcd_panel_handle_t panel = waveshare_esp32_s3_rgb_lcd_init();
+  if (panel == NULL) {
+    ESP_LOGE(TAG, "Échec d'initialisation du LCD");
+    return false;
+  }
 
-    waveshare_rgb_lcd_bl_on();
-    waveshare_rgb_lcd_set_brightness(100);
-    battery_init();
-    gui_init(panel);
+  waveshare_rgb_lcd_bl_on();
+  waveshare_rgb_lcd_set_brightness(100);
+  battery_init();
+  gui_init(panel);
 
-    if (can_display_init() != ESP_OK) {
-        ESP_LOGE(TAG, "Échec d'initialisation du module CAN");
-        return false;
-    }
-    if (rs485_display_init() != ESP_OK) {
-        ESP_LOGE(TAG, "Échec d'initialisation du module RS485");
-        return false;
-    }
+  if (can_display_init() != ESP_OK) {
+    ESP_LOGE(TAG, "Échec d'initialisation du module CAN");
+    return false;
+  }
+  if (rs485_display_init() != ESP_OK) {
+    ESP_LOGE(TAG, "Échec d'initialisation du module RS485");
+    return false;
+  }
 
-    UDOUBLE Imagesize = LCD_H_RES * LCD_V_RES * 2;
-    BlackImage = (UBYTE *)heap_caps_malloc(Imagesize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (BlackImage == NULL) {
-        ESP_LOGE(TAG, "Échec d’allocation mémoire pour le framebuffer : %s", esp_err_to_name(ESP_ERR_NO_MEM));
-        return false;
-    }
+  UDOUBLE Imagesize = LCD_H_RES * LCD_V_RES * 2;
+  BlackImage =
+      (UBYTE *)heap_caps_malloc(Imagesize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  if (BlackImage == NULL) {
+    ESP_LOGE(TAG, "Échec d’allocation mémoire pour le framebuffer : %s",
+             esp_err_to_name(ESP_ERR_NO_MEM));
+    return false;
+  }
 
-    Paint_NewImage(BlackImage, LCD_H_RES, LCD_V_RES, 0, WHITE);
-    Paint_SetScale(PAINT_SCALE);
-    Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
-    Paint_Clear(WHITE);
+  Paint_NewImage(BlackImage, LCD_H_RES, LCD_V_RES, 0, WHITE);
+  Paint_SetScale(PAINT_SCALE);
+  Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
+  Paint_Clear(WHITE);
 
-    return true;
+  return true;
 }
-
 
 static TickType_t s_last_activity_ticks;
 
-void pm_update_activity(void)
-{
-    s_last_activity_ticks = xTaskGetTickCount();
+void pm_update_activity(void) { s_last_activity_ticks = xTaskGetTickCount(); }
+
+static void process_background_tasks(void) {
+  static int s_prev_level = -1;
+  uint8_t batt = battery_get_percentage();
+  float normalized = batt / 100.0f;
+  float corrected = powf(normalized, BRIGHTNESS_GAMMA);
+  uint8_t level =
+      CONFIG_MIN_BRIGHTNESS +
+      (uint8_t)((CONFIG_MAX_BRIGHTNESS - CONFIG_MIN_BRIGHTNESS) * corrected);
+
+  if (s_prev_level < 0 ||
+      abs((int)level - s_prev_level) >= CONFIG_BRIGHTNESS_HYSTERESIS) {
+    waveshare_rgb_lcd_set_brightness(level);
+    s_prev_level = level;
+  }
+
+  TickType_t now = xTaskGetTickCount();
+  if (pdTICKS_TO_MS(now - s_last_activity_ticks) > INACTIVITY_TIMEOUT_MS) {
+    esp_err_t slp_ret = esp_light_sleep_start();
+    if (slp_ret != ESP_OK) {
+      ESP_LOGW(TAG, "Light sleep failed: %s", esp_err_to_name(slp_ret));
+    }
+    pm_update_activity();
+  }
 }
 
-static void process_background_tasks(void)
-{
-    static int s_prev_level = -1;
-    uint8_t batt = battery_get_percentage();
-    float normalized = batt / 100.0f;
-    float corrected = powf(normalized, BRIGHTNESS_GAMMA);
-    uint8_t level = CONFIG_MIN_BRIGHTNESS +
-                    (uint8_t)((CONFIG_MAX_BRIGHTNESS - CONFIG_MIN_BRIGHTNESS) * corrected);
+// Fonction principale de l'application
+void app_main(void) {
+  bool init_failed = false;
 
-    if (s_prev_level < 0 || abs((int)level - s_prev_level) >= CONFIG_BRIGHTNESS_HYSTERESIS) {
-        waveshare_rgb_lcd_set_brightness(level);
-        s_prev_level = level;
-    }
-
-    TickType_t now = xTaskGetTickCount();
-    if (pdTICKS_TO_MS(now - s_last_activity_ticks) > INACTIVITY_TIMEOUT_MS) {
-        esp_err_t slp_ret = esp_light_sleep_start();
-        if (slp_ret != ESP_OK) {
-            ESP_LOGW(TAG, "Light sleep failed: %s", esp_err_to_name(slp_ret));
-        }
-        pm_update_activity();
-    }
-}
-
-// Fonction principale de l'application  
-void app_main(void)
-{
-    bool init_failed = false;
-
-    if (!init_peripherals()) {
-        init_failed = true;
-    } else {
-        esp_pm_config_t pm_cfg = {
-            .max_freq_mhz = CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ,
-            .min_freq_mhz = 40,
-            .light_sleep_enable = true,
-        };
+  if (!init_peripherals()) {
+    init_failed = true;
+  } else {
+    esp_pm_config_t pm_cfg = {
+        .max_freq_mhz = CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ,
+        .min_freq_mhz = 40,
+        .light_sleep_enable = true,
+    };
 #if CONFIG_PM_ENABLE
-        esp_err_t err = esp_pm_configure(&pm_cfg);
-        if (err == ESP_ERR_NOT_SUPPORTED) {
-            ESP_LOGW(TAG, "PM non supporté, configuration ignorée");
-        } else {
-            ESP_ERROR_CHECK(err);
-        }
+    esp_err_t err = esp_pm_configure(&pm_cfg);
+    if (err == ESP_ERR_NOT_SUPPORTED) {
+      ESP_LOGW(TAG, "PM non supporté, configuration ignorée");
+    } else {
+      ESP_ERROR_CHECK(err);
+    }
 #endif
-        pm_update_activity();
+    pm_update_activity();
 
-        esp_err_t sd_ret = sd_mmc_init();
-        if (sd_ret != ESP_OK) {
-            ESP_LOGE(TAG, "sd_mmc_init a échoué : %s", esp_err_to_name(sd_ret));
-            UWORD err_x = g_display.width / TEXT_X_DIVISOR;
-            UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
-            Paint_DrawString_EN(err_x, err_y, "Échec carte SD !", &Font24, BLACK, WHITE);
-            waveshare_rgb_lcd_display(BlackImage);
-            init_failed = true;
-        } else {
-            draw_orientation_menu();
+    esp_err_t sd_ret = sd_mmc_init();
+    if (sd_ret != ESP_OK) {
+      ESP_LOGE(TAG, "sd_mmc_init a échoué : %s", esp_err_to_name(sd_ret));
+      UWORD err_x = g_display.width / TEXT_X_DIVISOR;
+      UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
+      Paint_DrawString_EN(err_x, err_y, "Échec carte SD !", &Font24, BLACK,
+                          WHITE);
+      waveshare_rgb_lcd_display(BlackImage);
+      init_failed = true;
+    } else {
+      draw_orientation_menu();
 
-            // Stop the temporary touch task and free its queue, but keep GT911 initialized
-            // so LVGL can continue polling the controller directly.
-            touch_task_deinit();
+      // Stop the temporary touch task and free its queue, but keep GT911
+      // initialized so LVGL can continue polling the controller directly.
+      touch_task_deinit();
 
-            wifi_manager_register_callback(wifi_status_cb);
+      wifi_manager_register_callback(wifi_status_cb);
 
-            const char *selected_dir = NULL;
-            image_source_t img_src = IMAGE_SOURCE_LOCAL;
-            int8_t index = 0;
+      const char *selected_dir = NULL;
+      image_source_t img_src = IMAGE_SOURCE_LOCAL;
+      int8_t index = 0;
 
-            app_state_t state = APP_STATE_SOURCE_SELECTION;
+      app_state_t state = APP_STATE_SOURCE_SELECTION;
 
-            while (state != APP_STATE_EXIT) {
-                switch (state) {
-                case APP_STATE_SOURCE_SELECTION:
-                    wifi_manager_stop();
-                    stop_file_server();
-                    img_src = draw_source_selection();
-                    lv_obj_clean(lv_scr_act());
-                    if (img_src == IMAGE_SOURCE_REMOTE) {
-                        s_wifi_ready = false;
-                        s_wifi_failed = false;
-                        wifi_manager_start();
-                        int wait_ms = WIFI_CONNECT_TIMEOUT_MS;
-                        while (!s_wifi_ready && !s_wifi_failed && wait_ms > 0) {
-                            vTaskDelay(pdMS_TO_TICKS(100));
-                            wait_ms -= 100;
-                        }
-                        if (!s_wifi_ready) {
-                            UWORD err_x = g_display.width / TEXT_X_DIVISOR;
-                            UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
-                            Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED, WHITE);
-
-                            state = APP_STATE_ERROR;
-                            break;
-                        }
-                        image_fetch_http_to_sd(CONFIG_IMAGE_FETCH_URL, MOUNT_POINT "/remote.bmp");
-                        snprintf(g_base_path, sizeof(g_base_path), "%s", MOUNT_POINT);
-                        bmp_page_start = 0;
-                        esp_err_t err = list_files_sorted(g_base_path, bmp_page_start, BMP_LIST_INIT_CAP);
-                        if (err != ESP_OK || bmp_list.size == 0) {
-                            UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
-                            UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR);
-                            Paint_DrawString_EN(nofile_x, nofile_y, "Aucune image distante.", &Font24, RED, WHITE);
-
-                            state = APP_STATE_ERROR;
-                        } else {
-                            draw_navigation_arrows();
-
-                            state = APP_STATE_NAVIGATION;
-                        }
-                    } else if (img_src == IMAGE_SOURCE_NETWORK) {
-                        s_wifi_ready = false;
-                        s_wifi_failed = false;
-                        wifi_manager_start();
-                        int wait_ms = WIFI_CONNECT_TIMEOUT_MS;
-                        while (!s_wifi_ready && !s_wifi_failed && wait_ms > 0) {
-                            vTaskDelay(pdMS_TO_TICKS(100));
-                            wait_ms -= 100;
-                        }
-                        esp_err_t err = start_file_server();
-                        if (!s_wifi_ready || s_wifi_failed || err != ESP_OK) {
-                            UWORD err_x = g_display.width / TEXT_X_DIVISOR;
-                            UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
-                            const char *msg = (!s_wifi_ready || s_wifi_failed) ? "Échec WiFi..." : "Échec serveur.";
-                            Paint_DrawString_EN(err_x, err_y, msg, &Font24, RED, WHITE);
-                            wifi_manager_stop();
-                            stop_file_server();
-                            state = APP_STATE_SOURCE_SELECTION;
-                        } else {
-                            esp_netif_ip_info_t ip;
-                            esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-                            if (netif && esp_netif_get_ip_info(netif, &ip) == ESP_OK) {
-                                char ip_str[IP4ADDR_STRLEN_MAX];
-                                ip4addr_ntoa_r((ip4_addr_t *)&ip.ip, ip_str, sizeof(ip_str));
-                                char url[32];
-                                snprintf(url, sizeof(url), "http://%s", ip_str);
-                                UWORD msg_x = g_display.width / TEXT_X_DIVISOR;
-                                UWORD msg_y = g_display.height / TEXT_Y1_DIVISOR;
-                                lv_obj_clean(lv_scr_act());
-                                Paint_DrawString_EN(msg_x, msg_y, "Upload BMP via:", &Font24, BLACK, WHITE);
-                                Paint_DrawString_EN(msg_x, msg_y + TEXT_LINE_SPACING, url, &Font24, BLACK, WHITE);
-                                state = APP_STATE_NAVIGATION;
-                            }
-                        }
-                    } else {
-                        state = APP_STATE_FOLDER_SELECTION;
-                    }
-                    break;
-
-                case APP_STATE_FOLDER_SELECTION:
-                    selected_dir = draw_folder_selection();
-                    if (selected_dir == NULL) {
-                        state = APP_STATE_EXIT;
-                        break;
-                    }
-                    snprintf(g_base_path, sizeof(g_base_path), "%s/%s", MOUNT_POINT, selected_dir);
-                    bmp_page_start = 0;
-                    esp_err_t err = list_files_sorted(g_base_path, bmp_page_start, BMP_LIST_INIT_CAP);
-                    if (err != ESP_OK) {
-                        ESP_LOGE(TAG, "Erreur lors du listage : %s", esp_err_to_name(err));
-                    }
-                    if (bmp_list.size == 0) {
-                        UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
-                        UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR) + 3 * TEXT_LINE_SPACING;
-                        Paint_DrawString_EN(nofile_x, nofile_y, "Aucun fichier BMP dans ce dossier.", &Font24, RED, WHITE);
-
-                        app_cleanup();
-                        state = APP_STATE_ERROR;
-                    } else {
-                        draw_navigation_arrows();
-
-                        state = APP_STATE_NAVIGATION;
-                    }
-                    free((void *)selected_dir);
-                    selected_dir = NULL;
-                    break;
-
-                case APP_STATE_NAVIGATION: {
-                    nav_action_t act = handle_touch_navigation(&index);
-                    if (act == NAV_EXIT) {
-                        ui_navigation_deinit();
-                        state = APP_STATE_EXIT;
-                    } else if (act == NAV_HOME) {
-                        ui_navigation_deinit();
-                        bmp_list_free();
-                        index = 0;
-                        selected_dir = NULL;
-                        lv_obj_clean(lv_scr_act());
-                        state = APP_STATE_SOURCE_SELECTION;
-                    } else if (act == NAV_SCROLL) {
-                        if (index >= bmp_list.size) index = 0;
-                        else if (index < 0) index = bmp_list.size - 1;
-                        Paint_Clear(WHITE);
-                        waveshare_rgb_lcd_display(BlackImage);
-                        lv_obj_clean(lv_scr_act());
-                        draw_navigation_arrows();
-                        draw_filename_bar(bmp_list.items[index]);
-                    } else if (act == NAV_ROTATE) {
-                        display_set_orientation(!g_is_portrait);
-                        Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
-                        Paint_Clear(WHITE);
-                        waveshare_rgb_lcd_display(BlackImage);
-                        lv_obj_clean(lv_scr_act());
-                        draw_navigation_arrows();
-                        draw_filename_bar(bmp_list.items[index]);
-                        display_save_orientation();
-                    }
-                    break;
-                }
-
-                case APP_STATE_ERROR:
-                    vTaskDelay(portMAX_DELAY);
-                    break;
-
-                case APP_STATE_EXIT:
-                    break;
-                }
-                process_background_tasks();
-                vTaskDelay(pdMS_TO_TICKS(CONFIG_BG_TASK_DELAY_MS));
+      while (state != APP_STATE_EXIT) {
+        switch (state) {
+        case APP_STATE_SOURCE_SELECTION:
+          wifi_manager_stop();
+          stop_file_server();
+          img_src = draw_source_selection();
+          lv_obj_clean(lv_scr_act());
+          if (img_src == IMAGE_SOURCE_REMOTE) {
+            s_wifi_ready = false;
+            s_wifi_failed = false;
+            wifi_manager_start();
+            int wait_ms = WIFI_CONNECT_TIMEOUT_MS;
+            while (!s_wifi_ready && !s_wifi_failed && wait_ms > 0) {
+              vTaskDelay(pdMS_TO_TICKS(100));
+              wait_ms -= 100;
             }
+            if (!s_wifi_ready) {
+              UWORD err_x = g_display.width / TEXT_X_DIVISOR;
+              UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
+              Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED,
+                                  WHITE);
+
+              state = APP_STATE_ERROR;
+              break;
+            }
+            image_fetch_http_to_sd(CONFIG_IMAGE_FETCH_URL,
+                                   MOUNT_POINT "/remote.png");
+            snprintf(g_base_path, sizeof(g_base_path), "%s", MOUNT_POINT);
+            png_page_start = 0;
+            esp_err_t err = list_files_sorted(g_base_path, png_page_start,
+                                              PNG_LIST_INIT_CAP);
+            if (err != ESP_OK || png_list.size == 0) {
+              UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
+              UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR);
+              Paint_DrawString_EN(nofile_x, nofile_y, "Aucune image distante.",
+                                  &Font24, RED, WHITE);
+
+              state = APP_STATE_ERROR;
+            } else {
+              draw_navigation_arrows();
+
+              state = APP_STATE_NAVIGATION;
+            }
+          } else if (img_src == IMAGE_SOURCE_NETWORK) {
+            s_wifi_ready = false;
+            s_wifi_failed = false;
+            wifi_manager_start();
+            int wait_ms = WIFI_CONNECT_TIMEOUT_MS;
+            while (!s_wifi_ready && !s_wifi_failed && wait_ms > 0) {
+              vTaskDelay(pdMS_TO_TICKS(100));
+              wait_ms -= 100;
+            }
+            esp_err_t err = start_file_server();
+            if (!s_wifi_ready || s_wifi_failed || err != ESP_OK) {
+              UWORD err_x = g_display.width / TEXT_X_DIVISOR;
+              UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
+              const char *msg = (!s_wifi_ready || s_wifi_failed)
+                                    ? "Échec WiFi..."
+                                    : "Échec serveur.";
+              Paint_DrawString_EN(err_x, err_y, msg, &Font24, RED, WHITE);
+              wifi_manager_stop();
+              stop_file_server();
+              state = APP_STATE_SOURCE_SELECTION;
+            } else {
+              esp_netif_ip_info_t ip;
+              esp_netif_t *netif =
+                  esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+              if (netif && esp_netif_get_ip_info(netif, &ip) == ESP_OK) {
+                char ip_str[IP4ADDR_STRLEN_MAX];
+                ip4addr_ntoa_r((ip4_addr_t *)&ip.ip, ip_str, sizeof(ip_str));
+                char url[32];
+                snprintf(url, sizeof(url), "http://%s", ip_str);
+                UWORD msg_x = g_display.width / TEXT_X_DIVISOR;
+                UWORD msg_y = g_display.height / TEXT_Y1_DIVISOR;
+                lv_obj_clean(lv_scr_act());
+                Paint_DrawString_EN(msg_x, msg_y, "Upload PNG via:", &Font24,
+                                    BLACK, WHITE);
+                Paint_DrawString_EN(msg_x, msg_y + TEXT_LINE_SPACING, url,
+                                    &Font24, BLACK, WHITE);
+                state = APP_STATE_NAVIGATION;
+              }
+            }
+          } else {
+            state = APP_STATE_FOLDER_SELECTION;
+          }
+          break;
+
+        case APP_STATE_FOLDER_SELECTION:
+          selected_dir = draw_folder_selection();
+          if (selected_dir == NULL) {
+            state = APP_STATE_EXIT;
+            break;
+          }
+          snprintf(g_base_path, sizeof(g_base_path), "%s/%s", MOUNT_POINT,
+                   selected_dir);
+          png_page_start = 0;
+          esp_err_t err =
+              list_files_sorted(g_base_path, png_page_start, PNG_LIST_INIT_CAP);
+          if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Erreur lors du listage : %s", esp_err_to_name(err));
+          }
+          if (png_list.size == 0) {
+            UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
+            UWORD nofile_y =
+                (g_display.height / TEXT_Y1_DIVISOR) + 3 * TEXT_LINE_SPACING;
+            Paint_DrawString_EN(nofile_x, nofile_y,
+                                "Aucun fichier PNG dans ce dossier.", &Font24,
+                                RED, WHITE);
+
+            app_cleanup();
+            state = APP_STATE_ERROR;
+          } else {
+            draw_navigation_arrows();
+
+            state = APP_STATE_NAVIGATION;
+          }
+          free((void *)selected_dir);
+          selected_dir = NULL;
+          break;
+
+        case APP_STATE_NAVIGATION: {
+          nav_action_t act = handle_touch_navigation(&index);
+          if (act == NAV_EXIT) {
+            ui_navigation_deinit();
+            state = APP_STATE_EXIT;
+          } else if (act == NAV_HOME) {
+            ui_navigation_deinit();
+            png_list_free();
+            index = 0;
+            selected_dir = NULL;
+            lv_obj_clean(lv_scr_act());
+            state = APP_STATE_SOURCE_SELECTION;
+          } else if (act == NAV_SCROLL) {
+            if (index >= png_list.size)
+              index = 0;
+            else if (index < 0)
+              index = png_list.size - 1;
+            Paint_Clear(WHITE);
+            waveshare_rgb_lcd_display(BlackImage);
+            lv_obj_clean(lv_scr_act());
+            draw_navigation_arrows();
+            draw_filename_bar(png_list.items[index]);
+          } else if (act == NAV_ROTATE) {
+            display_set_orientation(!g_is_portrait);
+            Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
+            Paint_Clear(WHITE);
+            waveshare_rgb_lcd_display(BlackImage);
+            lv_obj_clean(lv_scr_act());
+            draw_navigation_arrows();
+            draw_filename_bar(png_list.items[index]);
+            display_save_orientation();
+          }
+          break;
         }
-    }
 
-    app_cleanup();
+        case APP_STATE_ERROR:
+          vTaskDelay(portMAX_DELAY);
+          break;
 
-    if (init_failed) {
-        ESP_LOGE(TAG, "Initialisation échouée, redémarrage dans 5s");
-        vTaskDelay(pdMS_TO_TICKS(5000));
-        esp_restart();
+        case APP_STATE_EXIT:
+          break;
+        }
+        process_background_tasks();
+        vTaskDelay(pdMS_TO_TICKS(CONFIG_BG_TASK_DELAY_MS));
+      }
     }
-    vTaskDelete(NULL); // Ne jamais retourner
+  }
+
+  app_cleanup();
+
+  if (init_failed) {
+    ESP_LOGE(TAG, "Initialisation échouée, redémarrage dans 5s");
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    esp_restart();
+  }
+  vTaskDelete(NULL); // Ne jamais retourner
 }

@@ -17,7 +17,7 @@
 ## Hardware Required
 
 * Waveshare **ESP32-S3-Touch-LCD-7B** (1024 × 600) development kit.
-* microSD card (FAT formatted) containing BMP images.
+* microSD card (FAT formatted) containing PNG images.
 * Optional peripherals according to the interface used (CAN/RS485 transceiver, Li‑ion battery, etc.).
 
 ## Hardware Connection
@@ -74,7 +74,7 @@ The connection between ESP Board and the LCD is as follows:
                                        +-------------------+
 ```
 
-* Read BMP files from the SD card and display them on the screen.
+* Read PNG files from the SD card and display them on the screen.
 * Use the touchscreen to switch between images.
 
 ## Project Configuration
