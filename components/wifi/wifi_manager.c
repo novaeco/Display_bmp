@@ -100,6 +100,28 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
     }
 }
 
+static void wifi_manager_cleanup(void)
+{
+    if (s_wifi_any_handler) {
+        esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                              s_wifi_any_handler);
+        s_wifi_any_handler = NULL;
+    }
+    if (s_ip_got_ip_handler) {
+        esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
+                                              s_ip_got_ip_handler);
+        s_ip_got_ip_handler = NULL;
+    }
+
+    if (s_sta_netif) {
+        esp_netif_destroy(s_sta_netif);
+        s_sta_netif = NULL;
+    }
+
+    esp_event_loop_delete_default();
+    esp_netif_deinit();
+}
+
 static void wifi_manager_task(void *pv)
 {
     esp_err_t ret = nvs_flash_init();
@@ -120,6 +142,7 @@ static void wifi_manager_task(void *pv)
         if (s_event_cb) {
             s_event_cb(WIFI_MANAGER_EVENT_FAIL);
         }
+        wifi_manager_cleanup();
         s_task_handle = NULL;
         vTaskDelete(NULL);
         return;
@@ -195,18 +218,7 @@ void wifi_manager_stop(void)
     esp_wifi_stop();
     esp_wifi_deinit();
 
-    esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID,
-                                          s_wifi_any_handler);
-    esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
-                                          s_ip_got_ip_handler);
-
-    if (s_sta_netif) {
-        esp_netif_destroy(s_sta_netif);
-        s_sta_netif = NULL;
-    }
-
-    esp_event_loop_delete_default();
-    esp_netif_deinit();
+    wifi_manager_cleanup();
 
     if (s_event_queue) {
         vQueueDelete(s_event_queue);
