@@ -299,7 +299,7 @@ void draw_navigation_arrows(void) {
                  g_display.height - g_display.margin_bottom - 40);
   lv_obj_add_event_cb(btn_exit, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)NAV_CMD_EXIT);
-  add_btn_img_or_label(btn_exit, MOUNT_POINT "/pic/bluetooth.png", "Exit");
+  add_btn_img_or_label(btn_exit, MOUNT_POINT "/pic/exit.png", "Exit");
 }
 
 nav_action_t handle_touch_navigation(int8_t *idx) {
