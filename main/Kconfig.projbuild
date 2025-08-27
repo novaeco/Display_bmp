@@ -224,6 +224,6 @@ menu "Network options"
     endchoice
 
     config IMAGE_FETCH_URL
-        string "Remote BMP URL"
-        default "http://example.com/image.bmp"
+        string "Remote PNG URL"
+        default "http://example.com/image.png"
 endmenu
