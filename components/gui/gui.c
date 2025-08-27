@@ -66,6 +66,8 @@ void gui_init(esp_lcd_panel_handle_t panel)
 
     lv_indev_t *indev = lv_indev_create();
     lv_indev_set_read_cb(indev, lvgl_touch_read);
+    lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+    lv_indev_set_display(indev, s_disp);
 
     const esp_timer_create_args_t lvgl_tick_timer_args = {
         .callback = &lvgl_tick_timer_cb,
