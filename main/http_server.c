@@ -61,9 +61,8 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    size_t auth_len;
-#ifdef CONFIG_UPLOAD_AUTH_TOKEN_PRESENT
-    auth_len = httpd_req_get_hdr_value_len(req, "Authorization");
+    #ifdef CONFIG_UPLOAD_AUTH_TOKEN_PRESENT
+    size_t auth_len = httpd_req_get_hdr_value_len(req, "Authorization");
     char auth[64];
     if (auth_len == 0 || auth_len >= sizeof(auth) ||
         httpd_req_get_hdr_value_str(req, "Authorization", auth, sizeof(auth)) != ESP_OK) {
@@ -116,9 +115,9 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     }
 #endif
 
-    auth_len = httpd_req_get_hdr_value_len(req, "Content-Type");
+    size_t ctype_len = httpd_req_get_hdr_value_len(req, "Content-Type");
     char ctype[32];
-    if (auth_len == 0 || auth_len >= sizeof(ctype) ||
+    if (ctype_len == 0 || ctype_len >= sizeof(ctype) ||
         httpd_req_get_hdr_value_str(req, "Content-Type", ctype, sizeof(ctype)) != ESP_OK ||
         strcasecmp(ctype, "image/bmp") != 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Content-Type must be image/bmp");
