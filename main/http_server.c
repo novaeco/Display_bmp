@@ -139,8 +139,14 @@ static esp_err_t upload_post_handler(httpd_req_t *req) {
   }
 
   size_t n = strlen(clean_name);
-  if (n < 4 || strcasecmp(&clean_name[n - 4], ".png") != 0) {
-    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Only .png allowed");
+  const char *ext = n >= 4 ? &clean_name[n - 4] : "";
+  if (strcasecmp(ext, ".png") != 0) {
+    if (strcasecmp(ext, ".bmp") == 0) {
+      httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
+                          "BMP files are not supported. Please upload PNG");
+    } else {
+      httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Only .png allowed");
+    }
     return ESP_FAIL;
   }
 
