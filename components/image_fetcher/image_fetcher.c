@@ -21,6 +21,23 @@ extern const char cert_pem_start[] asm("_binary_cert_pem_start");
 #define ESP_ERR_HTTP_FETCH_HEADER (ESP_ERR_HTTP_BASE + 0x07)
 #endif
 
+static esp_err_t parse_sha256_header(const char *hash_hex, uint8_t out[32])
+{
+    if (!hash_hex || strlen(hash_hex) != 64) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+    for (int i = 0; i < 32; ++i) {
+        char tmp[3] = { hash_hex[2 * i], hash_hex[2 * i + 1], 0 };
+        char *end;
+        long v = strtol(tmp, &end, 16);
+        if (*end != 0 || v < 0 || v > 0xFF) {
+            return ESP_ERR_INVALID_RESPONSE;
+        }
+        out[i] = (uint8_t)v;
+    }
+    return ESP_OK;
+}
+
 esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
 {
     esp_http_client_config_t cfg = {
@@ -61,21 +78,11 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
         return ESP_ERR_INVALID_RESPONSE;
     }
     uint8_t expected_hash[32];
-    if (strlen(hash_hex) != 64) {
+    err = parse_sha256_header(hash_hex, expected_hash);
+    if (err != ESP_OK) {
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
-        return ESP_ERR_INVALID_RESPONSE;
-    }
-    for (int i = 0; i < 32; ++i) {
-        char tmp[3] = { hash_hex[2*i], hash_hex[2*i+1], 0 };
-        char *end;
-        long v = strtol(tmp, &end, 16);
-        if (*end != 0 || v < 0 || v > 0xFF) {
-            esp_http_client_close(client);
-            esp_http_client_cleanup(client);
-            return ESP_ERR_INVALID_RESPONSE;
-        }
-        expected_hash[i] = (uint8_t)v;
+        return err;
     }
 
     mbedtls_sha256_context sha_ctx;
@@ -189,22 +196,17 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
     }
 
     char *hash_hex = NULL;
-    if (esp_http_client_get_header(client, SHA256_HEADER, &hash_hex) != ESP_OK || !hash_hex || strlen(hash_hex) != 64) {
+    if (esp_http_client_get_header(client, SHA256_HEADER, &hash_hex) != ESP_OK || !hash_hex) {
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
         return ESP_ERR_INVALID_RESPONSE;
     }
     uint8_t expected_hash[32];
-    for (int i = 0; i < 32; ++i) {
-        char tmp[3] = { hash_hex[2*i], hash_hex[2*i+1], 0 };
-        char *end;
-        long v = strtol(tmp, &end, 16);
-        if (*end != 0 || v < 0 || v > 0xFF) {
-            esp_http_client_close(client);
-            esp_http_client_cleanup(client);
-            return ESP_ERR_INVALID_RESPONSE;
-        }
-        expected_hash[i] = (uint8_t)v;
+    err = parse_sha256_header(hash_hex, expected_hash);
+    if (err != ESP_OK) {
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        return err;
     }
 
     mbedtls_sha256_context sha_ctx;
