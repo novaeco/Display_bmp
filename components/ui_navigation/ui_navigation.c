@@ -28,6 +28,29 @@ static void folder_label_cb(lv_event_t *e)
     s_folder_choice = (const char *)lv_event_get_user_data(e);
 }
 
+static bool is_folder_excluded(const char *name)
+{
+    const char *list = UI_NAV_EXCLUDED_DIRS;
+    const char *p = list;
+    while (*p) {
+        while (*p == ' ' || *p == ',') {
+            p++;
+        }
+        const char *start = p;
+        while (*p && *p != ',') {
+            p++;
+        }
+        size_t len = p - start;
+        if (len == 0) {
+            continue;
+        }
+        if (strncasecmp(name, start, len) == 0 && name[len] == '\0') {
+            return true;
+        }
+    }
+    return false;
+}
+
 static inline void orient_coords(uint16_t *x, uint16_t *y)
 {
     if (g_is_portrait) {
@@ -144,6 +167,9 @@ const char *draw_folder_selection(void)
             continue;
         }
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        if (is_folder_excluded(entry->d_name)) {
             continue;
         }
 
