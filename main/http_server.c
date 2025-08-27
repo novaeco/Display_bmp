@@ -159,7 +159,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    f = fopen(filepath, "w");
+    f = fopen(filepath, "wb");
     if (!f) {
         ESP_LOGE(TAG, "fopen failed: %s", filepath);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "open fail");
