@@ -49,8 +49,6 @@ static esp_err_t esp_lcd_touch_gt911_del(esp_lcd_touch_handle_t tp);
 static esp_err_t touch_gt911_i2c_read(esp_lcd_touch_handle_t tp, uint16_t reg, uint8_t *data, uint8_t len);
 static esp_err_t touch_gt911_i2c_write(esp_lcd_touch_handle_t tp, uint16_t reg, uint8_t data);
 
-/* GT911 reset */
-static esp_err_t touch_gt911_reset(esp_lcd_touch_handle_t tp);
 /* Read status and config register */
 static esp_err_t touch_gt911_read_cfg(esp_lcd_touch_handle_t tp);
 
@@ -485,20 +483,6 @@ touch_gt911_point_t touch_gt911_read_point(uint8_t max_touch_cnt)
 /*******************************************************************************
 * Private API function
 *******************************************************************************/
-
-/* Reset controller */
-static esp_err_t touch_gt911_reset(esp_lcd_touch_handle_t tp)
-{
-    assert(tp != NULL);
-
-    if (tp->config.rst_gpio_num != GPIO_NUM_NC) {
-        ESP_RETURN_ON_ERROR(gpio_set_level(tp->config.rst_gpio_num, tp->config.levels.reset), TAG, "GPIO set level error!");
-        vTaskDelay(pdMS_TO_TICKS(10));
-        ESP_RETURN_ON_ERROR(gpio_set_level(tp->config.rst_gpio_num, !tp->config.levels.reset), TAG, "GPIO set level error!");
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-    return ESP_OK;
-}
 
 static esp_err_t touch_gt911_read_cfg(esp_lcd_touch_handle_t tp)
 {
