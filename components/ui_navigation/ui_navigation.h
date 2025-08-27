@@ -30,6 +30,15 @@ typedef enum {
 } nav_action_t;
 
 typedef enum {
+    NAV_CMD_PREV  = -1,
+    NAV_CMD_NONE  = 0,
+    NAV_CMD_NEXT  = 1,
+    NAV_CMD_ROTATE = 2,
+    NAV_CMD_HOME   = 3,
+    NAV_CMD_EXIT   = 4
+} nav_cmd_t;
+
+typedef enum {
     IMAGE_SOURCE_LOCAL = 0,
     IMAGE_SOURCE_REMOTE,
     IMAGE_SOURCE_NETWORK
