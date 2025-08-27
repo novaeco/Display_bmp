@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 static void make_path(char * dst, size_t dst_size, char letter, const char * path)
 {
@@ -55,10 +56,32 @@ static lv_fs_res_t fs_close(lv_fs_drv_t * drv, void * file_p)
     return res == FR_OK ? LV_FS_RES_OK : LV_FS_RES_FS_ERR;
 }
 
-static lv_fs_res_t fs_seek(lv_fs_drv_t * drv, void * file_p, uint32_t pos)
+static lv_fs_res_t fs_seek(lv_fs_drv_t *drv, void *file_p, int32_t offset, lv_fs_whence_t whence)
 {
     (void)drv;
-    FRESULT res = f_lseek((FIL *)file_p, pos);
+
+    FIL *f = (FIL *)file_p;
+    int64_t target = 0;
+
+    switch(whence) {
+        case LV_FS_SEEK_SET:
+            target = offset;
+            break;
+        case LV_FS_SEEK_CUR:
+            target = (int64_t)f_tell(f) + offset;
+            break;
+        case LV_FS_SEEK_END:
+            target = (int64_t)f_size(f) + offset;
+            break;
+        default:
+            return LV_FS_RES_INV_PARAM;
+    }
+
+    if(target < 0) {
+        return LV_FS_RES_INV_PARAM;
+    }
+
+    FRESULT res = f_lseek(f, (FSIZE_t)target);
     return res == FR_OK ? LV_FS_RES_OK : LV_FS_RES_FS_ERR;
 }
 
