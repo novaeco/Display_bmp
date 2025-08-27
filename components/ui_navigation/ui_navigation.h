@@ -38,6 +38,7 @@ typedef enum {
 const char *draw_folder_selection(void);
 void draw_navigation_arrows(void);
 void draw_filename_bar(const char *path);
+void ui_navigation_show_image(const char *path);
 nav_action_t handle_touch_navigation(int8_t *idx);
 image_source_t draw_source_selection(void);
 void draw_orientation_menu(void);

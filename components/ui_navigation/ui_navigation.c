@@ -280,6 +280,7 @@ static QueueHandle_t s_nav_queue;
 static volatile int s_src_choice = -1;
 static lv_obj_t *s_fname_bar = NULL;
 static lv_obj_t *s_fname_label = NULL;
+static lv_obj_t *s_main_img = NULL;
 
 static void source_btn_cb(lv_event_t *e) {
   s_src_choice = (int)lv_event_get_user_data(e);
@@ -369,7 +370,7 @@ void draw_navigation_arrows(void) {
                  (g_display.height - ARROW_HEIGHT) / 2);
   lv_obj_add_event_cb(btn_left, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)-1);
-  add_btn_img_or_label(btn_left, MOUNT_POINT "/pic/pic/arrow_left.bmp", "<");
+  add_btn_img_or_label(btn_left, MOUNT_POINT "/pic/pic/arrow_left.png", "<");
 
   lv_obj_t *btn_right = lv_btn_create(scr);
   lv_obj_set_size(btn_right, ARROW_WIDTH, ARROW_HEIGHT);
@@ -378,14 +379,14 @@ void draw_navigation_arrows(void) {
                  (g_display.height - ARROW_HEIGHT) / 2);
   lv_obj_add_event_cb(btn_right, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)1);
-  add_btn_img_or_label(btn_right, MOUNT_POINT "/pic/pic/arrow_right.bmp", ">");
+  add_btn_img_or_label(btn_right, MOUNT_POINT "/pic/pic/arrow_right.png", ">");
 
   lv_obj_t *btn_rotate = lv_btn_create(scr);
   lv_obj_set_size(btn_rotate, 100, 40);
   lv_obj_set_pos(btn_rotate, (g_display.width - 100) / 2, g_display.margin_top);
   lv_obj_add_event_cb(btn_rotate, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)2);
-  add_btn_img_or_label(btn_rotate, MOUNT_POINT "/pic/pic/wifi.bmp", "Rotation");
+  add_btn_img_or_label(btn_rotate, MOUNT_POINT "/pic/pic/wifi.png", "Rotation");
 
   lv_obj_t *btn_home = lv_btn_create(scr);
   lv_obj_set_size(btn_home, 100, 40);
@@ -393,7 +394,7 @@ void draw_navigation_arrows(void) {
                  g_display.height - g_display.margin_bottom - 40);
   lv_obj_add_event_cb(btn_home, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)3);
-  add_btn_img_or_label(btn_home, MOUNT_POINT "/pic/pic/home.bmp", "Home");
+  add_btn_img_or_label(btn_home, MOUNT_POINT "/pic/pic/home.png", "Home");
 
   lv_obj_t *btn_exit = lv_btn_create(scr);
   lv_obj_set_size(btn_exit, 100, 40);
@@ -401,7 +402,7 @@ void draw_navigation_arrows(void) {
                  g_display.height - g_display.margin_bottom - 40);
   lv_obj_add_event_cb(btn_exit, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)4);
-  add_btn_img_or_label(btn_exit, MOUNT_POINT "/pic/pic/bluetooth.bmp", "Exit");
+  add_btn_img_or_label(btn_exit, MOUNT_POINT "/pic/pic/bluetooth.png", "Exit");
 }
 
 nav_action_t handle_touch_navigation(int8_t *idx) {
@@ -466,6 +467,19 @@ void draw_filename_bar(const char *path) {
   }
 }
 
+void ui_navigation_show_image(const char *path) {
+  if (!s_main_img || !lv_obj_is_valid(s_main_img)) {
+    s_main_img = lv_img_create(lv_scr_act());
+  }
+  lv_img_set_src(s_main_img, path);
+  lv_obj_center(s_main_img);
+  if (g_is_portrait) {
+    lv_obj_set_style_transform_angle(s_main_img, 900, LV_PART_MAIN);
+  } else {
+    lv_obj_set_style_transform_angle(s_main_img, 0, LV_PART_MAIN);
+  }
+}
+
 void ui_navigation_deinit(void) {
   if (s_nav_queue) {
     vQueueDelete(s_nav_queue);
@@ -477,4 +491,8 @@ void ui_navigation_deinit(void) {
   }
   s_fname_bar = NULL;
   s_fname_label = NULL;
+  if (s_main_img) {
+    lv_obj_del(s_main_img);
+  }
+  s_main_img = NULL;
 }
