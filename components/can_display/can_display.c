@@ -16,6 +16,8 @@ extern display_geometry_t g_display;
 #define CAN_TX_PIN GPIO_NUM_20
 #define CAN_RX_PIN GPIO_NUM_19
 
+static TaskHandle_t s_can_task_handle = NULL;
+
 static void send_nav_touch(bool next)
 {
     touch_gt911_point_t ev = { .cnt = 1 };
@@ -62,10 +64,30 @@ esp_err_t can_display_init(void)
         return ret;
     }
 
-    if (xTaskCreate(can_display_task, "can_display_task", 2048, NULL, 5, NULL) != pdPASS) {
+    if (xTaskCreate(can_display_task, "can_display_task", 2048, NULL, 5, &s_can_task_handle) != pdPASS) {
         ESP_LOGE(CAN_DISPLAY_TAG, "Failed to create CAN task");
+        twai_stop();
+        twai_driver_uninstall();
         return ESP_FAIL;
     }
     return ESP_OK;
+}
+
+esp_err_t can_display_deinit(void)
+{
+    if (s_can_task_handle) {
+        vTaskDelete(s_can_task_handle);
+        s_can_task_handle = NULL;
+    }
+    esp_err_t ret = twai_stop();
+    if (ret != ESP_OK) {
+        ESP_LOGE(CAN_DISPLAY_TAG, "Failed to stop TWAI: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    ret = twai_driver_uninstall();
+    if (ret != ESP_OK) {
+        ESP_LOGE(CAN_DISPLAY_TAG, "Failed to uninstall TWAI driver: %s", esp_err_to_name(ret));
+    }
+    return ret;
 }
 

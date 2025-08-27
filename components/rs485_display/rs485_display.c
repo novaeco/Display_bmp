@@ -17,6 +17,8 @@ extern display_geometry_t g_display;
 #define RS485_TXD GPIO_NUM_15
 #define RS485_RXD GPIO_NUM_16
 
+static TaskHandle_t s_rs485_task_handle = NULL;
+
 static void send_nav_touch(bool next)
 {
     touch_gt911_point_t ev = { .cnt = 1 };
@@ -77,10 +79,24 @@ esp_err_t rs485_display_init(void)
         return ret;
     }
 
-    if (xTaskCreate(rs485_display_task, "rs485_display_task", 2048, NULL, 5, NULL) != pdPASS) {
+    if (xTaskCreate(rs485_display_task, "rs485_display_task", 2048, NULL, 5, &s_rs485_task_handle) != pdPASS) {
         ESP_LOGE(RS485_DISPLAY_TAG, "Failed to create RS485 task");
+        uart_driver_delete(RS485_UART);
         return ESP_FAIL;
     }
     return ESP_OK;
+}
+
+esp_err_t rs485_display_deinit(void)
+{
+    if (s_rs485_task_handle) {
+        vTaskDelete(s_rs485_task_handle);
+        s_rs485_task_handle = NULL;
+    }
+    esp_err_t ret = uart_driver_delete(RS485_UART);
+    if (ret != ESP_OK) {
+        ESP_LOGE(RS485_DISPLAY_TAG, "uart_driver_delete failed: %s", esp_err_to_name(ret));
+    }
+    return ret;
 }
 
