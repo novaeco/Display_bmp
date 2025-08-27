@@ -48,7 +48,8 @@ esp_err_t can_init(twai_timing_config_t t_config, twai_filter_config_t f_config,
     }
     else
     {
-        ESP_LOGI(CAN_TAG, "Failed to start driver"); // Log driver start failure
+        ESP_LOGE(CAN_TAG, "Failed to start driver"); // Log driver start failure
+        twai_driver_uninstall();                   // Uninstall driver on failure
         return ESP_FAIL;
     }
 
@@ -134,11 +135,11 @@ void can_write_Byte(twai_message_t message)
 {
     if (twai_transmit(&message, portMAX_DELAY) == ESP_OK)
     {
-        printf("Message queued for transmission\n"); // Log success
+        ESP_LOGI(CAN_TAG, "Message queued for transmission"); // Log success
     }
     else
     {
-        printf("Failed to queue message for transmission\n"); // Log failure
+        ESP_LOGE(CAN_TAG, "Failed to queue message for transmission"); // Log failure
     }
 }
 
