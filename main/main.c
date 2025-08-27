@@ -253,8 +253,9 @@ void app_main(void) {
 
               state = APP_STATE_ERROR;
             } else {
+              ui_navigation_show_image(png_list.items[index]);
               draw_navigation_arrows();
-
+              draw_filename_bar(png_list.items[index]);
               state = APP_STATE_NAVIGATION;
             }
           } else if (img_src == IMAGE_SOURCE_NETWORK) {
@@ -326,8 +327,9 @@ void app_main(void) {
             app_cleanup();
             state = APP_STATE_ERROR;
           } else {
+            ui_navigation_show_image(png_list.items[index]);
             draw_navigation_arrows();
-
+            draw_filename_bar(png_list.items[index]);
             state = APP_STATE_NAVIGATION;
           }
           free((void *)selected_dir);
@@ -351,17 +353,12 @@ void app_main(void) {
               index = 0;
             else if (index < 0)
               index = png_list.size - 1;
-            Paint_Clear(WHITE);
-            waveshare_rgb_lcd_display(BlackImage);
-            lv_obj_clean(lv_scr_act());
-            draw_navigation_arrows();
+            ui_navigation_show_image(png_list.items[index]);
             draw_filename_bar(png_list.items[index]);
           } else if (act == NAV_ROTATE) {
             display_set_orientation(!g_is_portrait);
-            Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
-            Paint_Clear(WHITE);
-            waveshare_rgb_lcd_display(BlackImage);
             lv_obj_clean(lv_scr_act());
+            ui_navigation_show_image(png_list.items[index]);
             draw_navigation_arrows();
             draw_filename_bar(png_list.items[index]);
             display_save_orientation();
