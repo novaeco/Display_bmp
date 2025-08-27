@@ -19,9 +19,9 @@
 #include "esp_netif.h"
 #include "file_manager.h"
 #include "gui.h"
-#include "gui_paint.h" // En-tête des fonctions de dessin graphique
 #include "http_server.h"
 #include "image_fetcher.h"
+#include "lvfs_fatfs.h"
 #include "lvgl.h"
 #include "lwip/inet.h"
 #include "pm.h"
@@ -49,12 +49,10 @@
 #include <string.h>
 
 #define BASE_PATH_LEN 128
-#define PAINT_SCALE 65
 #define WIFI_CONNECT_TIMEOUT_MS 10000
 
 char g_base_path[BASE_PATH_LEN]; // Chemin du dossier actuellement affiché
 static const char *TAG = "APP";
-UBYTE *BlackImage; // Framebuffer global
 
 typedef enum {
   APP_STATE_SOURCE_SELECTION = 0,
@@ -86,8 +84,6 @@ static void app_cleanup(void) {
     ESP_LOGW(TAG, "sd_mmc_unmount a échoué : %s", esp_err_to_name(unmount_ret));
   }
   png_list_free();
-  free(BlackImage);
-  BlackImage = NULL;
   gui_deinit();
 }
 
@@ -121,20 +117,6 @@ static bool init_peripherals(void) {
     ESP_LOGE(TAG, "Échec d'initialisation du module RS485");
     return false;
   }
-
-  UDOUBLE Imagesize = LCD_H_RES * LCD_V_RES * 2;
-  BlackImage =
-      (UBYTE *)heap_caps_malloc(Imagesize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-  if (BlackImage == NULL) {
-    ESP_LOGE(TAG, "Échec d’allocation mémoire pour le framebuffer : %s",
-             esp_err_to_name(ESP_ERR_NO_MEM));
-    return false;
-  }
-
-  Paint_NewImage(BlackImage, LCD_H_RES, LCD_V_RES, 0, WHITE);
-  Paint_SetScale(PAINT_SCALE);
-  Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
-  Paint_Clear(WHITE);
 
   return true;
 }
@@ -193,14 +175,20 @@ void app_main(void) {
     esp_err_t sd_ret = sd_mmc_init();
     if (sd_ret != ESP_OK) {
       ESP_LOGE(TAG, "sd_mmc_init a échoué : %s", esp_err_to_name(sd_ret));
-      UWORD err_x = g_display.width / TEXT_X_DIVISOR;
-      UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
-      Paint_DrawString_EN(err_x, err_y, "Échec carte SD !", &Font24, BLACK,
-                          WHITE);
-      waveshare_rgb_lcd_display(BlackImage);
+      lv_obj_t *lbl = lv_label_create(lv_scr_act());
+      lv_label_set_text(lbl, "Échec carte SD !");
+      lv_obj_center(lbl);
       init_failed = true;
     } else {
-      draw_orientation_menu();
+      lvfs_fatfs_register('S');
+      snprintf(g_base_path, sizeof(g_base_path), "%s", MOUNT_POINT);
+      png_page_start = 0;
+      if (list_files_sorted(g_base_path, png_page_start, PNG_LIST_INIT_CAP) ==
+              ESP_OK &&
+          png_list.size > 0) {
+        ui_navigation_show_image(png_list.items[0]);
+        draw_filename_bar(png_list.items[0]);
+      }
 
       // Stop the temporary touch task and free its queue, but keep GT911
       // initialized so LVGL can continue polling the controller directly.
@@ -226,19 +214,17 @@ void app_main(void) {
             s_wifi_failed = false;
             wifi_manager_start();
             int wait_ms = WIFI_CONNECT_TIMEOUT_MS;
-            while (!s_wifi_ready && !s_wifi_failed && wait_ms > 0) {
-              vTaskDelay(pdMS_TO_TICKS(100));
-              wait_ms -= 100;
-            }
-            if (!s_wifi_ready) {
-              UWORD err_x = g_display.width / TEXT_X_DIVISOR;
-              UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
-              Paint_DrawString_EN(err_x, err_y, "Échec WiFi...", &Font24, RED,
-                                  WHITE);
-
-              state = APP_STATE_ERROR;
-              break;
-            }
+          while (!s_wifi_ready && !s_wifi_failed && wait_ms > 0) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            wait_ms -= 100;
+          }
+          if (!s_wifi_ready) {
+            lv_obj_t *lbl = lv_label_create(lv_scr_act());
+            lv_label_set_text(lbl, "Échec WiFi...");
+            lv_obj_center(lbl);
+            state = APP_STATE_ERROR;
+            break;
+          }
             image_fetch_http_to_sd(CONFIG_IMAGE_FETCH_URL,
                                    MOUNT_POINT "/remote.png");
             snprintf(g_base_path, sizeof(g_base_path), "%s", MOUNT_POINT);
@@ -246,11 +232,9 @@ void app_main(void) {
             esp_err_t err = list_files_sorted(g_base_path, png_page_start,
                                               PNG_LIST_INIT_CAP);
             if (err != ESP_OK || png_list.size == 0) {
-              UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
-              UWORD nofile_y = (g_display.height / TEXT_Y1_DIVISOR);
-              Paint_DrawString_EN(nofile_x, nofile_y, "Aucune image distante.",
-                                  &Font24, RED, WHITE);
-
+              lv_obj_t *lbl = lv_label_create(lv_scr_act());
+              lv_label_set_text(lbl, "Aucune image distante.");
+              lv_obj_center(lbl);
               state = APP_STATE_ERROR;
             } else {
               ui_navigation_show_image(png_list.items[index]);
@@ -269,12 +253,12 @@ void app_main(void) {
             }
             esp_err_t err = start_file_server();
             if (!s_wifi_ready || s_wifi_failed || err != ESP_OK) {
-              UWORD err_x = g_display.width / TEXT_X_DIVISOR;
-              UWORD err_y = g_display.height / TEXT_Y1_DIVISOR;
               const char *msg = (!s_wifi_ready || s_wifi_failed)
-                                    ? "Échec WiFi..."
-                                    : "Échec serveur.";
-              Paint_DrawString_EN(err_x, err_y, msg, &Font24, RED, WHITE);
+                                     ? "Échec WiFi..."
+                                     : "Échec serveur.";
+              lv_obj_t *lbl = lv_label_create(lv_scr_act());
+              lv_label_set_text(lbl, msg);
+              lv_obj_center(lbl);
               wifi_manager_stop();
               stop_file_server();
               state = APP_STATE_SOURCE_SELECTION;
@@ -287,13 +271,13 @@ void app_main(void) {
                 ip4addr_ntoa_r((ip4_addr_t *)&ip.ip, ip_str, sizeof(ip_str));
                 char url[32];
                 snprintf(url, sizeof(url), "http://%s", ip_str);
-                UWORD msg_x = g_display.width / TEXT_X_DIVISOR;
-                UWORD msg_y = g_display.height / TEXT_Y1_DIVISOR;
                 lv_obj_clean(lv_scr_act());
-                Paint_DrawString_EN(msg_x, msg_y, "Upload PNG via:", &Font24,
-                                    BLACK, WHITE);
-                Paint_DrawString_EN(msg_x, msg_y + TEXT_LINE_SPACING, url,
-                                    &Font24, BLACK, WHITE);
+                lv_obj_t *l1 = lv_label_create(lv_scr_act());
+                lv_label_set_text(l1, "Upload PNG via:");
+                lv_obj_align(l1, LV_ALIGN_TOP_MID, 0, 0);
+                lv_obj_t *l2 = lv_label_create(lv_scr_act());
+                lv_label_set_text(l2, url);
+                lv_obj_align(l2, LV_ALIGN_TOP_MID, 0, 40);
                 state = APP_STATE_NAVIGATION;
               }
             }
@@ -317,12 +301,9 @@ void app_main(void) {
             ESP_LOGE(TAG, "Erreur lors du listage : %s", esp_err_to_name(err));
           }
           if (png_list.size == 0) {
-            UWORD nofile_x = g_display.width / TEXT_X_DIVISOR;
-            UWORD nofile_y =
-                (g_display.height / TEXT_Y1_DIVISOR) + 3 * TEXT_LINE_SPACING;
-            Paint_DrawString_EN(nofile_x, nofile_y,
-                                "Aucun fichier PNG dans ce dossier.", &Font24,
-                                RED, WHITE);
+            lv_obj_t *lbl = lv_label_create(lv_scr_act());
+            lv_label_set_text(lbl, "Aucun fichier PNG dans ce dossier.");
+            lv_obj_center(lbl);
 
             app_cleanup();
             state = APP_STATE_ERROR;
