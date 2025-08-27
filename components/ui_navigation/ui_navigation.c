@@ -267,7 +267,7 @@ void draw_navigation_arrows(void) {
                  (g_display.height - ARROW_HEIGHT) / 2);
   lv_obj_add_event_cb(btn_left, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)-1);
-  add_btn_img_or_label(btn_left, MOUNT_POINT "/pic/pic/arrow_left.png", "<");
+  add_btn_img_or_label(btn_left, MOUNT_POINT "/pic/arrow_left.png", "<");
 
   lv_obj_t *btn_right = lv_btn_create(scr);
   lv_obj_set_size(btn_right, ARROW_WIDTH, ARROW_HEIGHT);
@@ -276,14 +276,14 @@ void draw_navigation_arrows(void) {
                  (g_display.height - ARROW_HEIGHT) / 2);
   lv_obj_add_event_cb(btn_right, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)1);
-  add_btn_img_or_label(btn_right, MOUNT_POINT "/pic/pic/arrow_right.png", ">");
+  add_btn_img_or_label(btn_right, MOUNT_POINT "/pic/arrow_right.png", ">");
 
   lv_obj_t *btn_rotate = lv_btn_create(scr);
   lv_obj_set_size(btn_rotate, 100, 40);
   lv_obj_set_pos(btn_rotate, (g_display.width - 100) / 2, g_display.margin_top);
   lv_obj_add_event_cb(btn_rotate, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)2);
-  add_btn_img_or_label(btn_rotate, MOUNT_POINT "/pic/pic/wifi.png", "Rotation");
+  add_btn_img_or_label(btn_rotate, MOUNT_POINT "/pic/wifi.png", "Rotation");
 
   lv_obj_t *btn_home = lv_btn_create(scr);
   lv_obj_set_size(btn_home, 100, 40);
@@ -291,7 +291,7 @@ void draw_navigation_arrows(void) {
                  g_display.height - g_display.margin_bottom - 40);
   lv_obj_add_event_cb(btn_home, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)3);
-  add_btn_img_or_label(btn_home, MOUNT_POINT "/pic/pic/home.png", "Home");
+  add_btn_img_or_label(btn_home, MOUNT_POINT "/pic/home.png", "Home");
 
   lv_obj_t *btn_exit = lv_btn_create(scr);
   lv_obj_set_size(btn_exit, 100, 40);
@@ -299,7 +299,7 @@ void draw_navigation_arrows(void) {
                  g_display.height - g_display.margin_bottom - 40);
   lv_obj_add_event_cb(btn_exit, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)4);
-  add_btn_img_or_label(btn_exit, MOUNT_POINT "/pic/pic/bluetooth.png", "Exit");
+  add_btn_img_or_label(btn_exit, MOUNT_POINT "/pic/bluetooth.png", "Exit");
 }
 
 nav_action_t handle_touch_navigation(int8_t *idx) {
