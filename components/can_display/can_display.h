@@ -17,6 +17,16 @@ extern "C" {
  */
 esp_err_t can_display_init(void);
 
+/**
+ * @brief Deinitialize TWAI interface and delete CAN task.
+ *
+ * Stops and uninstalls the TWAI driver and removes the task created by
+ * can_display_init().
+ *
+ * @return ESP_OK on success, an error code otherwise.
+ */
+esp_err_t can_display_deinit(void);
+
 #ifdef __cplusplus
 }
 #endif

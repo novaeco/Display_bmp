@@ -17,6 +17,16 @@ extern "C" {
  */
 esp_err_t rs485_display_init(void);
 
+/**
+ * @brief Deinitialize RS485 display UART and delete task.
+ *
+ * Removes the FreeRTOS task created by rs485_display_init() and deletes
+ * the UART driver.
+ *
+ * @return ESP_OK on success, an error code otherwise.
+ */
+esp_err_t rs485_display_deinit(void);
+
 #ifdef __cplusplus
 }
 #endif
