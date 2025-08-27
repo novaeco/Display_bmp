@@ -229,8 +229,14 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
         return ESP_FAIL;
     }
 
-    uint8_t *buf = NULL;
-    size_t cap = 0;
+    size_t cap = 4 * 1024; /* Initial capacity to limit reallocs */
+    uint8_t *buf = heap_caps_malloc(cap, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) {
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        mbedtls_sha256_free(&sha_ctx);
+        return ESP_ERR_NO_MEM;
+    }
     size_t total = 0;
     uint8_t tmp_buf[512];
     err = ESP_OK;
@@ -243,14 +249,15 @@ esp_err_t image_fetch_http_to_psram(const char *url, uint8_t **data, size_t *len
             break;
         }
         if (total + r > cap) {
-            size_t new_cap = cap + ((r > sizeof(tmp_buf)) ? r : sizeof(tmp_buf));
-            uint8_t *new_buf = heap_caps_realloc(buf, new_cap, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+            while (total + r > cap) {
+                cap *= 2;
+            }
+            uint8_t *new_buf = heap_caps_realloc(buf, cap, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
             if (!new_buf) {
                 err = ESP_ERR_NO_MEM;
                 break;
             }
             buf = new_buf;
-            cap = new_cap;
         }
         memcpy(buf + total, tmp_buf, r);
         total += r;
