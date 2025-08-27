@@ -5,12 +5,8 @@
 #include "file_manager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
-#include "gt911.h"
-#include "gui_paint.h"
 #include "lvgl.h"
-#include "rgb_lcd_port.h"
 #include "sd.h"
-#include "touch_task.h"
 #include <dirent.h>
 #include <limits.h>
 #include <stdio.h>
@@ -18,7 +14,6 @@
 #include <string.h>
 #include <strings.h>
 
-extern UBYTE *BlackImage;
 extern display_geometry_t g_display;
 extern char g_base_path[];
 
@@ -49,101 +44,11 @@ static bool is_folder_excluded(const char *name) {
   return false;
 }
 
-static inline void orient_coords(uint16_t *x, uint16_t *y) {
-  if (g_is_portrait) {
-    uint16_t tx = *x;
-    *x = *y;
-    *y = g_display.width - tx;
-  }
-}
-
-static void draw_folder_button(UWORD x0, UWORD y0, UWORD x1, UWORD y1,
-                               const char *label, UWORD offset_x,
-                               UWORD bg_color) {
-  Paint_DrawRectangle(x0, y0, x1, y1, bg_color, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-  Paint_DrawLine(x0, y0, x1, y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-  Paint_DrawLine(x1, y0, x1, y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-  Paint_DrawLine(x1, y1, x0, y1, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-  Paint_DrawLine(x0, y1, x0, y0, BLACK, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-  Paint_DrawString_EN(x0 + offset_x, (y0 + y1) / 2 - BTN_LABEL_OFFSET_Y, label,
-                      &Font24, BLACK, bg_color);
-}
-void draw_orientation_menu(void) {
-  touch_gt911_point_t point_data;
-
-  UWORD text_x = g_display.width / TEXT_X_DIVISOR;
-  UWORD text_y1 = g_display.height / TEXT_Y1_DIVISOR;
-  UWORD text_y2 = text_y1 + TEXT_LINE_SPACING;
-
-  Paint_DrawString_EN(text_x, text_y1, "Orientation :", &Font24, BLACK, WHITE);
-  Paint_DrawString_EN(text_x, text_y2, "Choisissez :", &Font24, BLACK, WHITE);
-
-  UWORD btnL_x0 = g_display.margin_left;
-  UWORD btnL_y0 = (g_display.height - BTN_HEIGHT) / 2;
-  UWORD btnL_x1 = btnL_x0 + BTN_WIDTH;
-  UWORD btnL_y1 = btnL_y0 + BTN_HEIGHT;
-
-  UWORD btnR_x1 = g_display.width - g_display.margin_right;
-  UWORD btnR_x0 = btnR_x1 - BTN_WIDTH;
-  UWORD btnR_y0 = btnL_y0;
-  UWORD btnR_y1 = btnL_y1;
-
-  draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1, "Paysage",
-                     BTN_LABEL_L_OFFSET_X, WHITE);
-  draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1, "Portrait",
-                     BTN_LABEL_R_OFFSET_X, WHITE);
-
-  waveshare_rgb_lcd_display(BlackImage);
-
-  while (1) {
-    if (xQueueReceive(s_touch_queue, &point_data, portMAX_DELAY) == pdTRUE) {
-      if (point_data.cnt == 0) {
-        continue;
-      }
-      if (point_data.cnt == 2) {
-        Paint_Clear(WHITE);
-        Paint_DrawString_EN(text_x, text_y1, "Double touche detectee", &Font24,
-                            BLACK, WHITE);
-        Paint_DrawString_EN(text_x, text_y2, "Reessayer", &Font24, BLACK,
-                            WHITE);
-        waveshare_rgb_lcd_display(BlackImage);
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        Paint_Clear(WHITE);
-        Paint_DrawString_EN(text_x, text_y1, "Orientation :", &Font24, BLACK,
-                            WHITE);
-        Paint_DrawString_EN(text_x, text_y2, "Choisissez :", &Font24, BLACK,
-                            WHITE);
-        draw_folder_button(btnL_x0, btnL_y0, btnL_x1, btnL_y1, "Paysage",
-                           BTN_LABEL_L_OFFSET_X, WHITE);
-        draw_folder_button(btnR_x0, btnR_y0, btnR_x1, btnR_y1, "Portrait",
-                           BTN_LABEL_R_OFFSET_X, WHITE);
-        waveshare_rgb_lcd_display(BlackImage);
-        continue;
-      }
-      uint16_t tx = point_data.x[0];
-      uint16_t ty = point_data.y[0];
-      orient_coords(&tx, &ty);
-      if (tx >= btnL_x0 && tx <= btnL_x1 && ty >= btnL_y0 && ty <= btnL_y1) {
-        display_set_orientation(false);
-      } else if (tx >= btnR_x0 && tx <= btnR_x1 && ty >= btnR_y0 &&
-                 ty <= btnR_y1) {
-        display_set_orientation(true);
-      } else {
-        continue;
-      }
-      Paint_SetRotate(g_is_portrait ? ROTATE_90 : ROTATE_0);
-      Paint_Clear(WHITE);
-      waveshare_rgb_lcd_display(BlackImage);
-      display_save_orientation();
-      return;
-    }
-  }
-}
 
 const char *draw_folder_selection(void) {
-  UWORD text_x = g_display.width / TEXT_X_DIVISOR;
-  UWORD text_y1 = g_display.height / TEXT_Y1_DIVISOR;
-  UWORD text_y2 = text_y1 + TEXT_LINE_SPACING;
+  uint16_t text_x = g_display.width / TEXT_X_DIVISOR;
+  uint16_t text_y1 = g_display.height / TEXT_Y1_DIVISOR;
+  uint16_t text_y2 = text_y1 + TEXT_LINE_SPACING;
 
   s_folder_choice = NULL;
 
@@ -237,7 +142,7 @@ const char *draw_folder_selection(void) {
   lv_label_set_text(lbl_choose, "Choisissez un dossier :");
   lv_obj_set_pos(lbl_choose, text_x, text_y2);
 
-  UWORD list_y = text_y2 + TEXT_LINE_SPACING;
+  uint16_t list_y = text_y2 + TEXT_LINE_SPACING;
   for (size_t i = 0; i < fl.count; ++i) {
     lv_obj_t *lbl = lv_label_create(scr);
     lv_label_set_text(lbl, fl.names[i]);
@@ -265,14 +170,6 @@ const char *draw_folder_selection(void) {
   free(fl.labels);
   s_folder_choice = NULL;
 
-  Paint_Clear(WHITE);
-  Paint_DrawString_EN(text_x, text_y1, "Dossier choisi :", &Font24, BLACK,
-                      WHITE);
-  Paint_DrawString_EN(text_x, text_y2, selected_dir, &Font24, BLACK, WHITE);
-  Paint_DrawString_EN(text_x, text_y2 + TEXT_LINE_SPACING,
-                      "Touchez la fleche pour demarrer.", &Font24, BLACK,
-                      WHITE);
-  waveshare_rgb_lcd_display(BlackImage);
   return selected_dir;
 }
 
@@ -297,13 +194,13 @@ image_source_t draw_source_selection(void) {
   s_src_choice = -1;
   lv_obj_t *scr = lv_obj_create(NULL);
 
-  UWORD btnL_x0 = g_display.margin_left;
-  UWORD btnL_y0 = (g_display.height - BTN_HEIGHT) / 2;
-  UWORD btnR_x1 = g_display.width - g_display.margin_right;
-  UWORD btnR_x0 = btnR_x1 - BTN_WIDTH;
-  UWORD btnR_y0 = btnL_y0;
-  UWORD btnN_x0 = (g_display.width - BTN_WIDTH) / 2;
-  UWORD btnN_y0 = btnL_y0 + BTN_HEIGHT + NAV_MARGIN;
+  uint16_t btnL_x0 = g_display.margin_left;
+  uint16_t btnL_y0 = (g_display.height - BTN_HEIGHT) / 2;
+  uint16_t btnR_x1 = g_display.width - g_display.margin_right;
+  uint16_t btnR_x0 = btnR_x1 - BTN_WIDTH;
+  uint16_t btnR_y0 = btnL_y0;
+  uint16_t btnN_x0 = (g_display.width - BTN_WIDTH) / 2;
+  uint16_t btnN_y0 = btnL_y0 + BTN_HEIGHT + NAV_MARGIN;
 
   lv_obj_t *btn_local = lv_btn_create(scr);
   lv_obj_set_size(btn_local, BTN_WIDTH, BTN_HEIGHT);
