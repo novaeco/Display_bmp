@@ -92,7 +92,7 @@ esp_err_t esp_lcd_touch_new_i2c_gt911(const esp_lcd_panel_io_handle_t io, const 
 
     /* Save config */
     memcpy(&esp_lcd_touch_gt911->config, config, sizeof(esp_lcd_touch_config_t));
-    esp_lcd_touch_io_gt911_config_t *gt911_config = (esp_lcd_touch_io_gt911_config_t *)esp_lcd_touch_gt911->config.driver_data;
+    const esp_lcd_touch_io_gt911_config_t *gt911_config = esp_lcd_touch_gt911->config.driver_data;
 
     /* Prepare pin for touch controller reset */
     if (esp_lcd_touch_gt911->config.rst_gpio_num != GPIO_NUM_NC) {
