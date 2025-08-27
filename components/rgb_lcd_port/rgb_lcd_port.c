@@ -98,14 +98,25 @@ esp_lcd_panel_handle_t waveshare_esp32_s3_rgb_lcd_init()
     };
 
     // Create and register the RGB LCD panel driver with the configuration above
-    ESP_ERROR_CHECK(esp_lcd_new_rgb_panel(&panel_config, &panel_handle));
+    esp_err_t ret = esp_lcd_new_rgb_panel(&panel_config, &panel_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "esp_lcd_new_rgb_panel failed: %s", esp_err_to_name(ret));
+        return NULL;
+    }
 
     // Log the initialization of the RGB LCD panel
     ESP_LOGI(TAG, "Initialize RGB LCD panel");
 
     io_extension_lcd_vdd_enable(true);
     // Initialize the RGB LCD panel
-    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+    ret = esp_lcd_panel_init(panel_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "esp_lcd_panel_init failed: %s", esp_err_to_name(ret));
+        esp_lcd_panel_del(panel_handle);
+        panel_handle = NULL;
+        io_extension_lcd_vdd_enable(false);
+        return NULL;
+    }
 
     // Allocate the window buffer and its mutex
     if (!s_window_buf) {
@@ -115,12 +126,22 @@ esp_lcd_panel_handle_t waveshare_esp32_s3_rgb_lcd_init()
         );
         if (!s_window_buf) {
             ESP_LOGE(TAG, "Failed to allocate window buffer");
+            esp_lcd_panel_del(panel_handle);
+            panel_handle = NULL;
+            io_extension_lcd_vdd_enable(false);
+            return NULL;
         }
     }
     if (!s_window_buf_mutex) {
         s_window_buf_mutex = xSemaphoreCreateMutex();
         if (!s_window_buf_mutex) {
             ESP_LOGE(TAG, "Failed to create window buffer mutex");
+            heap_caps_free(s_window_buf);
+            s_window_buf = NULL;
+            esp_lcd_panel_del(panel_handle);
+            panel_handle = NULL;
+            io_extension_lcd_vdd_enable(false);
+            return NULL;
         }
     }
 
