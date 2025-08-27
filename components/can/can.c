@@ -145,16 +145,24 @@ void can_write_Byte(twai_message_t message)
 /**
  * @brief Receives a CAN message.
  *
- * This function reads and logs received messages from the CAN interface.
+ * This function attempts to read a single message from the CAN interface
+ * without blocking. The received message is stored in the structure pointed to
+ * by the @p message parameter.
  *
- * @return The received CAN message.
+ * @param[out] message Pointer to structure that will hold the received message.
+ *
+ * @return true if a message was received, false if no message is available.
  */
-twai_message_t can_read_Byte()
+bool can_read_Byte(twai_message_t *message)
 {
-    twai_message_t message; // Variable to hold received message
-    while (twai_receive(&message, 0) == ESP_OK)
+    if (message == NULL)
     {
-        if (message.extd)
+        return false;
+    }
+
+    if (twai_receive(message, 0) == ESP_OK)
+    {
+        if (message->extd)
         {
             ESP_LOGI(CAN_TAG, "Message is in Extended Format");
         }
@@ -163,15 +171,17 @@ twai_message_t can_read_Byte()
             ESP_LOGI(CAN_TAG, "Message is in Standard Format");
         }
 
-        printf("ID: %lx\nByte:", message.identifier);
-        if (!message.rtr)
+        printf("ID: %lx\nByte:", message->identifier);
+        if (!message->rtr)
         {
-            for (int i = 0; i < message.data_length_code; i++)
+            for (int i = 0; i < message->data_length_code; i++)
             {
-                printf(" %d = %02x,", i, message.data[i]);
+                printf(" %d = %02x,", i, message->data[i]);
             }
             printf("\n");
         }
+        return true;
     }
-    return message;
+
+    return false;
 }
