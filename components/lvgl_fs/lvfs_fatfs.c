@@ -74,7 +74,7 @@ static void * fs_dir_open(lv_fs_drv_t * drv, const char * path)
     char full_path[256];
     make_path(full_path, sizeof(full_path), drv->letter, path);
 
-    DIR * dir = lv_malloc(sizeof(DIR));
+    FF_DIR * dir = lv_malloc(sizeof(FF_DIR));
     if(!dir) {
         return NULL;
     }
@@ -89,7 +89,7 @@ static lv_fs_res_t fs_dir_read(lv_fs_drv_t * drv, void * dir_p, char * fn)
 {
     (void)drv;
     FILINFO info;
-    FRESULT res = f_readdir((DIR *)dir_p, &info);
+    FRESULT res = f_readdir((FF_DIR *)dir_p, &info);
     if(res != FR_OK) return LV_FS_RES_FS_ERR;
     if(info.fname[0] == '\0') {
         fn[0] = '\0';
@@ -102,7 +102,7 @@ static lv_fs_res_t fs_dir_read(lv_fs_drv_t * drv, void * dir_p, char * fn)
 static lv_fs_res_t fs_dir_close(lv_fs_drv_t * drv, void * dir_p)
 {
     (void)drv;
-    FRESULT res = f_closedir((DIR *)dir_p);
+    FRESULT res = f_closedir((FF_DIR *)dir_p);
     lv_free(dir_p);
     return res == FR_OK ? LV_FS_RES_OK : LV_FS_RES_FS_ERR;
 }
