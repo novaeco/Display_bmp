@@ -108,16 +108,19 @@ static void * fs_dir_open(lv_fs_drv_t * drv, const char * path)
     return dir;
 }
 
-static lv_fs_res_t fs_dir_read(lv_fs_drv_t * drv, void * dir_p, char * fn)
+static lv_fs_res_t fs_dir_read(lv_fs_drv_t * drv, void * dir_p, char * fn, uint32_t size)
 {
     (void)drv;
     FILINFO info;
     FRESULT res = f_readdir((FF_DIR *)dir_p, &info);
     if(res != FR_OK) return LV_FS_RES_FS_ERR;
     if(info.fname[0] == '\0') {
-        fn[0] = '\0';
+        if(size > 0) fn[0] = '\0';
     } else {
-        strcpy(fn, info.fname);
+        if(size > 0) {
+            strncpy(fn, info.fname, size - 1);
+            fn[size - 1] = '\0';
+        }
     }
     return LV_FS_RES_OK;
 }
