@@ -44,6 +44,10 @@ config UPLOAD_AUTH_TOKEN
     string "Upload Authorization token"
     default ""
 
+config UI_NAV_EXCLUDED_DIRS
+    string "Comma-separated list of folders to exclude from album selection"
+    default "pic"
+
 endmenu
 
 
