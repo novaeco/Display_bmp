@@ -18,7 +18,8 @@
 
 // Include necessary driver headers
 #include "driver/twai.h"   // TWAI (CAN) driver
-#include "io_extension.h"        // IO EXTENSION I2C CAN control header  
+#include "io_extension.h"        // IO EXTENSION I2C CAN control header
+#include <stdbool.h>              // For bool type used in API
 
 // Define the GPIO pins used for CAN communication
 #define TX_GPIO_NUM GPIO_NUM_20 // Transmit GPIO number for CAN
@@ -57,10 +58,15 @@ uint32_t can_read_alerts();
 void can_write_Byte(twai_message_t message);
 
 /**
- * @brief Reads a single byte of data from the CAN interface.
+ * @brief Reads a single CAN message from the interface.
  *
- * @return A CAN message containing the received data.
+ * This function attempts to receive one message without blocking and stores it
+ * in the provided output parameter.
+ *
+ * @param[out] message Pointer to structure where the received message will be stored.
+ *
+ * @return true if a message was received, false otherwise.
  */
-twai_message_t can_read_Byte();
+bool can_read_Byte(twai_message_t *message);
 
 #endif  // __CAN_H
