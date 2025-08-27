@@ -62,7 +62,7 @@ typedef struct {
     /*!< User data passed to callback */
     void *user_data;
     /*!< User data passed to driver */
-    void *driver_data;
+    const void *driver_data;
 } esp_lcd_touch_config_t;
 
 typedef struct {
