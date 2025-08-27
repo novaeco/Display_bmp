@@ -7,10 +7,10 @@ extern "C" {
 #endif
 
 /**
- * Charge un fichier BMP depuis la carte SD et produit un `lv_img_dsc_t`.
- * L’appelant est responsable de libérer `out_img->data` via `lv_mem_free()`.
+ * Charge un fichier BMP depuis la carte SD et produit un `lv_image_dsc_t`.
+ * L’appelant est responsable de libérer `out_img->data` via `lv_free()`.
  */
-bool image_load_bmp(const char *path, lv_img_dsc_t *out_img);
+bool image_load_bmp(const char *path, lv_image_dsc_t *out_img);
 
 #ifdef __cplusplus
 }

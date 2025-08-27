@@ -30,7 +30,7 @@ typedef struct {
 } bmp_info_header_t;
 #pragma pack(pop)
 
-bool image_load_bmp(const char *path, lv_img_dsc_t *out_img)
+bool image_load_bmp(const char *path, lv_image_dsc_t *out_img)
 {
     FILE *f = fopen(path, "rb");
     if (!f) {
@@ -56,7 +56,7 @@ bool image_load_bmp(const char *path, lv_img_dsc_t *out_img)
         size_t bytes_pp     = ih.biBitCount / 8;
         size_t buffer_bytes = width * height * 2;
 
-        frame = lv_mem_alloc(buffer_bytes);
+        frame = lv_malloc(buffer_bytes);
         if (!frame) break;
         row = malloc(row_bytes);
         if (!row) break;
@@ -81,10 +81,9 @@ bool image_load_bmp(const char *path, lv_img_dsc_t *out_img)
         free(row);
         row = NULL;
 
-        out_img->header.always_zero = 0;
         out_img->header.w  = width;
         out_img->header.h  = height;
-        out_img->header.cf = LV_IMG_CF_TRUE_COLOR;
+        out_img->header.cf = LV_COLOR_FORMAT_RGB565;
         out_img->data      = frame;
         out_img->data_size = buffer_bytes;
 
@@ -93,7 +92,7 @@ bool image_load_bmp(const char *path, lv_img_dsc_t *out_img)
 
     if (!success) {
         ESP_LOGE(TAG, "failed to decode %s", path);
-        lv_mem_free(frame);
+        lv_free(frame);
         free(row);
     }
 
