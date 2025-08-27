@@ -43,6 +43,8 @@ static bool s_fail_notified;
 static esp_event_handler_instance_t s_wifi_any_handler;
 static esp_event_handler_instance_t s_ip_got_ip_handler;
 static esp_netif_t *s_sta_netif;
+static bool s_run;
+static TaskHandle_t s_stop_task_handle;
 
 static void get_service_name(char *name, size_t max_len)
 {
@@ -159,8 +161,8 @@ static void wifi_manager_task(void *pv)
     esp_wifi_connect();
 
     wifi_internal_event_t evt;
-    for (;;) {
-        if (xQueueReceive(s_event_queue, &evt, portMAX_DELAY)) {
+    while (s_run) {
+        if (xQueueReceive(s_event_queue, &evt, pdMS_TO_TICKS(100))) {
             if (evt.base == IP_EVENT && evt.id == IP_EVENT_STA_GOT_IP) {
                 s_retry_num = 0;
                 s_fail_notified = false;
@@ -187,6 +189,11 @@ static void wifi_manager_task(void *pv)
             }
         }
     }
+    if (s_stop_task_handle) {
+        xTaskNotifyGive(s_stop_task_handle);
+    }
+    s_task_handle = NULL;
+    vTaskDelete(NULL);
 }
 
 void wifi_manager_register_callback(wifi_event_cb_t cb)
@@ -201,6 +208,8 @@ esp_err_t wifi_manager_start(void)
     }
     s_retry_num = 0;
     s_fail_notified = false;
+    s_run = true;
+    s_stop_task_handle = NULL;
     if (xTaskCreate(wifi_manager_task, "wifi_mgr", WIFI_MANAGER_TASK_STACK, NULL,
                     WIFI_MANAGER_TASK_PRIO, &s_task_handle) != pdPASS) {
         return ESP_ERR_NO_MEM;
@@ -213,6 +222,9 @@ void wifi_manager_stop(void)
     if (!s_task_handle) {
         return;
     }
+    s_stop_task_handle = xTaskGetCurrentTaskHandle();
+    s_run = false;
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     esp_wifi_disconnect();
     esp_wifi_stop();
@@ -225,6 +237,5 @@ void wifi_manager_stop(void)
         s_event_queue = NULL;
     }
 
-    vTaskDelete(s_task_handle);
     s_task_handle = NULL;
 }
