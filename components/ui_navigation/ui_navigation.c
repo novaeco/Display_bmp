@@ -283,7 +283,7 @@ void draw_navigation_arrows(void) {
   lv_obj_set_pos(btn_rotate, (g_display.width - 100) / 2, g_display.margin_top);
   lv_obj_add_event_cb(btn_rotate, nav_btn_cb, LV_EVENT_CLICKED,
                       (void *)(intptr_t)NAV_CMD_ROTATE);
-  add_btn_img_or_label(btn_rotate, MOUNT_POINT "/pic/rotate.png", "Rotation")
+  add_btn_img_or_label(btn_rotate, MOUNT_POINT "/pic/rotate.png", "Rotation");
 
   lv_obj_t *btn_home = lv_btn_create(scr);
   lv_obj_set_size(btn_home, 100, 40);
