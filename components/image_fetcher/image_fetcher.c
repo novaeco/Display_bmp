@@ -120,7 +120,16 @@ esp_err_t image_fetch_http_to_sd(const char *url, const char *dest_path)
         } else if (data_read == 0) {
             break;
         }
-        fwrite(buf, 1, data_read, f);
+        size_t bytes_written = fwrite(buf, 1, data_read, f);
+        if (bytes_written != data_read) {
+            ESP_LOGE(TAG, "fwrite wrote %zu of %d bytes", bytes_written, data_read);
+            fclose(f);
+            esp_http_client_close(client);
+            esp_http_client_cleanup(client);
+            remove(dest_path);
+            mbedtls_sha256_free(&sha_ctx);
+            return ESP_FAIL;
+        }
         total_read += data_read;
         rc = mbedtls_sha256_update(&sha_ctx, buf, data_read);
         if (rc != 0) {
