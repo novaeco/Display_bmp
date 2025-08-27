@@ -199,16 +199,21 @@ const char *draw_folder_selection(void)
 
         if (fl.count == fl.cap) {
             size_t newcap = fl.cap ? fl.cap * 2 : 4;
+            char **old_names = fl.names;
+            lv_obj_t **old_labels = fl.labels;
             char **newnames = realloc(fl.names, newcap * sizeof(char *));
             lv_obj_t **newlabels = realloc(fl.labels, newcap * sizeof(lv_obj_t *));
             if (!newnames || !newlabels) {
                 ESP_LOGE("NAV", "realloc failed");
-                closedir(dir);
-                for (size_t i = 0; i < fl.count; ++i) {
-                    free(fl.names[i]);
+                if (newnames && newnames != old_names) {
+                    free(newnames);
                 }
-                free(newnames);
-                free(newlabels);
+                if (newlabels && newlabels != old_labels) {
+                    free(newlabels);
+                }
+                fl.names = old_names;
+                fl.labels = old_labels;
+                closedir(dir);
                 return NULL;
             }
             fl.names = newnames;
